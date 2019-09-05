@@ -1,0 +1,103 @@
+---
+title: "MBAN_507 Connecting to Datbases"
+author: "Your Name Here"
+date: "September 5, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Connecting to Databases
+
+To connect to a database you need to know the location of the database (IP Address), you need to know the server port through which the database can be accessed (most postgres databases use **5432**), you also need to know the user name and password associated with your account on the database.
+
+To manage and access data in R we have to use a package designed to return data from the database into data formats that can be recognized by R.  So the package communicates between R and the database.  Anything that does this is said to use an Application Program Interface, or API.
+
+In R, we can use `RPostgreSQL`, a package designed specifically for interfacing with Postgres databases.
+
+```{r loadLibraries}
+library(RPostgreSQL)
+
+```
+
+You will see that the package also loads another package called `DBI`.
+
+## Connecting to the Database
+
+The library gives us the tools to interact with the database, but we need to tell R where the database connection actually is.  We need to know the:
+
+Element | Value
+------ | -----
+Host | mban-sjg.ccmu2vnao4me.us-west-2.rds.amazonaws.com
+Port | 5432
+User | **supersecret**
+Password | **supersecret**
+Database | mbangroups
+
+
+```{r connecting, eval=FALSE}
+con <- dbConnect(PostgreSQL(),
+                 host = "XXXXXX",
+                 port = 999999999,
+                 user = "XXXXXX",
+                 password = "XXXXXX",
+                 dbname = "XXXXXX")
+```
+
+If we did this properly we now have an object `con` in R that represents the connection to our database.  From then on, any time we want to explicitly connect to the database we can use the object `con`.
+
+For example, if we wanted to list all the tables, we could use the command:
+
+```{r listTables, eval=FALSE}
+dbListTables(con)
+```
+
+There are a number of basic commands you can do to manage a database connection with the `RPostgreSQL` package.
+
+Function | Description
+------ | -------
+`dbGetInfo()` | Get information (as a `list`) about the current connection.
+`dbReadTable()` | Read information from a table in the database.
+`dbSendQuery()` | Send a SQL query to the database.
+`dbFetch()` | Fetch the results from the database.
+
+## Our First Data Manipulation
+
+There is one table in the database.  Use this chunk to read the table by replacing the `data.frame()` call with the appropriate call.
+
+```{r readTable}
+
+table_data <- data.frame(rows = c(1,1))
+
+```
+
+When we do this we see that the table has `r nrow(table_data)` unique entries.
+
+We can get subsets of data by filtering out categories.  For example, I am only interested in data related to "University professors and lecturers":
+
+```{r filtering, eval = FALSE}
+library(dplyr)
+
+profs <- table_data %>% 
+  filter(Description == "University professors and lecturers")
+
+
+```
+
+This now gives us `r 12` rows out of our original `data.frame()`.
+
+The data in the original CSV was not well formatted, and so we have to mess around a bit to get it to plot properly.  But we can do it:
+
+```{r plotprofs, eval = FALSE}
+plot(seq(2018, 2028, by = 1), as.numeric(profs[1,6:16]), 
+     type = "b",
+     xlab = "Year",
+     ylab = "Employment")
+
+```
+
+## Summary
+
+Please use this space to write some summary statements.
