@@ -143,11 +143,26 @@ Primary Key  | Name  | Group  | Grade
 ## Creating a Database
 
 * Using [AWS RDS (free tier)](https://aws.amazon.com/getting-started/tutorials/create-connect-postgresql-db/)
-* Using PG Admin
+* Using [PGAdmin4](https://www.pgadmin.org/docs/pgadmin4/development/database_dialog.html)
 
-<!--s-->
+<!--v-->
 
 ## Connecting
 
 <img src=figures/pgadmin_newdb.png>
-mban-sjg.ccmu2vnao4me.us-west-2.rds.amazonaws.com
+
+<!--v-->
+
+## Connecting
+
+* Server:
+XXmban-sjg.ccmu2vnao4me.us-west-2.rds.amazonaws.comXX
+* Port: 5432
+
+<!--v-->
+
+## Connecting
+
+* RMarkdown:  [Rmarkdown Link](https://github.ubc.ca/gorings/MBAN_BAIT507/blob/master/lectures/Lecture2/R/mban_lecturetwo_connecting.Rmd) [http://bit.ly/ubcmban]()
+
+* Data: [BC Data Catalogue](https://catalogue.data.gov.bc.ca/dataset?download_audience=Public) [Labour Market Data](https://catalogue.data.gov.bc.ca/dataset/labour-market-outlook/resource/df92bf55-45b2-42a3-b5a8-6d2857df2ffe) [http://bit.ly/2kwWQrI]()
