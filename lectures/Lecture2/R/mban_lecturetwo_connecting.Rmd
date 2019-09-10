@@ -46,7 +46,36 @@ con <- dbConnect(PostgreSQL(),
                  dbname = "XXXXXXXXXXXXXXXXXX")
 ```
 
-If we did this properly we now have an object `con` in R that represents the connection to our database.  From then on, any time we want to explicitly connect to the database we can use the object `con`.
+## Adding Data
+
+With the above command we can connect to an existing databases (as long as they exist).  If we are actively building a database we can use the `dbCreateTable()` and `dbWriteTable()` functions to add data, once we've modeled the data we want to use:
+
+```r
+# Do not run, do not change this to an executable chunk with the
+# current AWS connections elements.
+
+# You can read the file from your computer, or from the url:
+
+url <- "https://catalogue.data.gov.bc.ca/dataset/f9566991-eb97-49a9-a587-5f0725024985/resource/df92bf55-45b2-42a3-b5a8-6d2857df2ffe/download/employment-by-industry-and-occupation-for-bc.csv"
+
+filepath <- "data/employment-by-industry-and-occupation-for-bc.csv"
+
+emp_data <- readr::read_csv(url)
+
+# You need to have administrative/write privileges for this database.
+# You do not have them for the online (AWS) database.  Can you create a new local database?
+
+Encoding(emp_data$Description) <- "latin1"
+
+dbWriteTable(con,
+              name = "employment",
+              emp_data)
+
+```
+
+## Checking the database out
+
+If connected properly we now have an object `con` in R that represents the connection to our database.  From then on, any time we want to explicitly connect to the database we can use the object `con`.
 
 For example, if we wanted to list all the tables, we could use the command:
 
