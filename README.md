@@ -6,7 +6,20 @@ Repository for BAIT Lectures and course notes.
 
 I strongly recommend that you get used to using `git` and [GitHub](http://github.com).  Managing your group project with GitHub would be a great way to start learning the core elements of collaborative coding, it gives me an easy way to help you check your code, and it provides an opportunity for you to begin to develop an online portfolio.
 
-GitHub provides [a desktop application](https://desktop.github.com/) if you are using Windows or MacOS.  You can also [use commandline tools](https://git-scm.com/).  
+GitHub provides [a desktop application](https://desktop.github.com/) if you are using Windows or MacOS.  You can also [use commandline tools](https://git-scm.com/).
+
+### Good git Tutorials
+
+* GitHub [Git Handbook](https://guides.github.com/introduction/git-handbook/)
+* [Happy Git and GitHub for the useR](https://happygitwithr.com/)
+
+### Cloning the Repository
+
+When you have added GitHub/git to your computer you can do something called cloning.  This creates a copy of the repository (online folder) onto your computer.
+
+With `git` (and, by extension, GitHub), that folder is linked to the online repository.  That way, if I make changes online you can `pull` them down to your local repository.
+
+**However**, it may be the case that the changes you have made, and that I have made `conflict`.  In this case there are ways of resolving the conflicts by merging the two files.
 
 ## Lecture Notes
 
