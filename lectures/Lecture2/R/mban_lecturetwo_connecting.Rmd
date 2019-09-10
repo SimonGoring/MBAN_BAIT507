@@ -30,20 +30,20 @@ The library gives us the tools to interact with the database, but we need to tel
 
 Element | Value
 ------ | -----
-Host | mban-sjg.ccmu2vnao4me.us-west-2.rds.amazonaws.com
+Host | mban-bait.cmy5mce9ahmj.us-east-1.rds.amazonaws.com
 Port | 5432
 User | **supersecret**
 Password | **supersecret**
-Database | mbangroups
+Database | mbandatabase
 
 
 ```{r connecting, eval=FALSE}
 con <- dbConnect(PostgreSQL(),
-                 host = "XXXXXX",
-                 port = 999999999,
-                 user = "XXXXXX",
-                 password = "XXXXXX",
-                 dbname = "XXXXXX")
+                 host = "mban-bait.cmy5mce9ahmj.us-east-1.rds.amazonaws.com",
+                 port = 9999999,
+                 user = "XXXXXXXXXXXX",
+                 password = "XXXXXXXXXXXXXX",
+                 dbname = "XXXXXXXXXXXXXXXXXX")
 ```
 
 If we did this properly we now have an object `con` in R that represents the connection to our database.  From then on, any time we want to explicitly connect to the database we can use the object `con`.
@@ -80,7 +80,7 @@ We can get subsets of data by filtering out categories.  For example, I am only 
 ```{r filtering, eval = FALSE}
 library(dplyr)
 
-profs <- table_data %>% 
+profs <- table_data %>%
   filter(Description == "University professors and lecturers")
 
 
@@ -91,7 +91,7 @@ This now gives us `r 12` rows out of our original `data.frame()`.
 The data in the original CSV was not well formatted, and so we have to mess around a bit to get it to plot properly.  But we can do it:
 
 ```{r plotprofs, eval = FALSE}
-plot(seq(2018, 2028, by = 1), as.numeric(profs[1,6:16]), 
+plot(seq(2018, 2028, by = 1), as.numeric(profs[1,6:16]),
      type = "b",
      xlab = "Year",
      ylab = "Employment")
