@@ -7,181 +7,76 @@ revealOptions:
     transition: 'fade'
 ---
 
-# MBAN - BAIT507
-## Single table queries, LIMIT, ORDER, OFFSET
-
+# Data Modeling with Relational Databases, Normalization and JOINs
 <!--v-->
-
-## Re-connecting
-
-| Element  | Value     |
-|----------|-----------|
-| Host     | localhost |
-| Port     | 5432      |
-| Database | ???       |
-| User     | ???       |
-| Password | ???       |
-
+## Table vs Database
 <!--v-->
-
-## Storage
-### Things go in, things go out
-
+## Tables Are Wide
+Col1 | col2 | col3 | col4 | . . . |
+--- | --- | --- | --- | --- |
+Asa | 12.2 | BC | Banana |
 <!--v-->
-
-## A Table in a Database
-
-*  A table is stored as a file/files, or as a hash
-*  It is defined using SQL, but the DBMS interprets the SQL and stores it in an appropriate format.
-
+## Tables Are Wide
+Relationship is defined by co-occurrence
 <!--v-->
-
-## Creating the Table
-
-```sql
-CREATE TABLE tablename
-CREATE TABLE IF NOT EXISTS tablename
-```
-
+## Databases are Relational
+Tables defined narrowly
+Relationships are defined explicitly
 <!--v-->
-
-## Creating the Table
-
-```sql
-CREATE TABLE IF NOT EXISTS tablename
-  (columnone integer,
-   columntwo text,
-   columnthree date)
-```
-
+## Databases are Relational
+Country to Province/State to City
+Industry to Clean Technology
 <!--v-->
-
-## Creating the Table
-### Using R
-
-```r
-library(RPostgreSQL)
-dbCreateTable(con, data.frame, name = "tablename")
-
-# or, in schema:
-dbCreateTable(con, data.frame, name = c("schema", "tablename"))
-```
-
-<!--v-->
-
-## Creating the Table
-### Using R (Explicitly)
-
-```r
-
-dbExecute(con,
-  "CREATE TABLE IF NOT EXISTS tablename
-    (columnone integer,
-     columntwo text,
-     columnthree date)")
-```
-<!--v-->
-
-## Viewing the Table
-### Directly from the DB
-
-```sql
-SELECT * FROM name.table
-```
-
-<!--v-->
-
-## Viewing the Table
-### Using R
-
-```r
-library(RPostgreSQL)
-
-dbGetQuery(con, "SELECT * FROM name.table")
-```
-
-<!--v-->
-
-## When Data Gets Big
-
-```sql
-SELECT * FROM verybigtable
-```
-
-* Could be GBs in size (instantaneous power consumption by tenant across properties over time)
-* Simple `SELECT` queries could crash user computers
-
-<!--v-->
-
-## When Data Gets Big
-
-* `LIMIT` and `OFFSET` limit records returned and shift position of first record.
-
-```sql
-SELECT
-  *
-FROM
-  verybigtable
-LIMIT 10
-OFFSET 10
-```
-
-<!--v-->
-
-## Table Data Ordered by Property
-
-```sql
-SELECT
-  *
-FROM
-  verybigtable
-ORDER BY columnone
-LIMIT 10
-```
-
-<!--v-->
-
-## Table Data Ordered Randomly
-
-```sql
-SELECT
-  *
-FROM
-  verybigtable
-ORDER BY random()
-LIMIT 10
-```
-
+## Entity Relationship Diagram
+Diagram defines relationships between entities
+Data in entity tuples must be Atomic, Distinct, & Dependent
+Normalization
 <!--s-->
+# Normalization
+Normal Forms
+Help manage data and reduce total disk space used
+<!--v-->
+## First Normal Form
+Cells contain a single value
+Each record is unique
+Name | Hobbies | Address | Country
+--- | --- | --- | ---
+A Snuz | Fishing, Anime, Movies | 1111 Howe St, Vancouver | Canada
+<!--v-->
+## First Normal Form
+Cells contain a single value
+Each record is unique
+Name | Hobbies | Address | Country
+--- | --- | --- | ---
+A Snuz | Fishing | 1111 Howe St, Vancouver | Canada
+A Snuz | Anime | 1111 Howe St, Vancouver | Canada
+A Snuz | Movies | 1111 Howe St, Vancouver | Canada
+<!--v-->
+## Second Normal Form
+Must be in First Normal Form
+Single Column (primary key) uniquely identifies record
+Name | Hobbies | Address | Country
+--- | --- | --- | ---
+A Snuz | Fishing | 1111 Howe St, Vancouver | Canada
+A Snuz | Anime | 1111 Howe St, Vancouver | Canada
 
-## Managing Project Data
+**Fishing** is not dependent on the **Address**
+<!--v-->
+## Second Normal Form
+Must be in First Normal Form
+Single Column (primary key) uniquely identifies record
+OID | Name | Address | Country
+--- | --- | --- | ---
+ 1 | A Snuz | 1111 Howe St, Vancouver | Canada
+ 2 | A Snuz | 1111 Howe St, Vancouver | Canada
+
+SID | Sport
+--- | ---
+1 | Fishing
+2 | Anime
 
 <!--v-->
+## Third Normal Form
+Satisfies second normal form
+No transitive dependencies
 
-### What are the steps?
-
-* Identify the problem
-  - Document (RMarkdown file)
-* Find and explore data
-  - R (RMarkdown file)
-* Model data efficiently
-  - R and Postgres
-* Final analysis and data presentation
-  - RMarkdown
-<!--v-->
-
-### What's the Objective?
-
-* Database (Postgres - connection)
-* Project Folder
-  - RMarkdown file
-  - R Folder
-  - Data Folder
-    - input
-    - output
-  - Figures
-  - Drafts
-
-<!--v-->
-
-# So Let's Get Started
