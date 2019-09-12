@@ -1,0 +1,240 @@
+---
+title: "Clean Energy"
+author: "Simon Goring"
+date: "September 11, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Actual Hours Worked
+
+The data file is quite large, as with others.  This file was obtained from the Canada Open Data portal and represents [Actual hours worked by occupation, monthly, unadjusted for seasonality](https://open.canada.ca/data/en/dataset/f958af27-edcb-4337-a1ce-b7071486cc9d).
+
+Here we will be looking at:
+
+1.  How to connect safely and in a reproducible manner.
+2.  How to manage data access in a way to save you time
+3.  
+
+## Safely Connecting
+
+Including your password in an open manner is often dangerous.  Especially if you use the same password for everything (looks at some of you. . . ).  When you share data across email it can also be frustrating or difficult to change passwords where needed, causing unintended problems.
+
+One solution is to use a seperate file for your connection information.  This file will be included in your project directory, but not sent to your colleagues (and can be added to a `.gitignore` file if you are using `git` for version control).
+
+The file needs to contain the information you will use to connect to your database (or other sensitive connections).
+
+You can format the file any way you like, you just need to know how to read it into your script, and you need to let your colleagues know what format their file should be.
+
+Lets use a plain text file for this project.  We'll call the file `db_connect.txt`.  The lines in the file represent (1) server, (2) port, (3) user, (4) password, (5) database name.
+
+```
+localhost
+5432
+postgres
+postgres
+nocdb
+```
+
+To then use this, I'll load the library, read in the file (saved in the same directory as the `Rmd` file) and then create the connection.  I'm going to use the `assertthat` package to just make sure that the database connection is there.
+
+```{r}
+library(RPostgreSQL)
+
+connect <- readr::read_lines("db_connect.txt")
+
+con <- RPostgreSQL::dbConnect(PostgreSQL(),
+                              host = connect[1],
+                              port = connect[2],
+                              user = connect[3],
+                              password = connect[4],
+                              dbname = connect[5])
+
+assertthat::assert_that(dbGetInfo(con)$host == connect[1],
+           msg = "We're connecting somewhere weird. . . ")
+```
+
+The `assertthat` package has a set of functions that basically make assertions.  It's really good practice to use something like it to actually test your code as you write it.  It also lets you customize the error messages (using the `msg` parameter), so you can have meaningful errors, rather than "The function was provided incorrect information" or something less useful.
+
+### Better, Faster Data Management
+
+So, we want fully reproducible workflows, we want everything tied together, but we don't want to have to go through the same steps every time.
+
+For this, planning is key.  What will your data/database look like once it's done?  Think about it a little bit.  In this case I expect a few things:
+
+  1.  The database itself exists (tested above)
+  2.  The database has all the data we need.
+  3.  The data file exists.
+
+If this is all, then we should be able to get started fairly easily.
+
+#### Does the database have what we want?
+
+I have looked at the data and expect several tables.  We can check that they're there.  This assumes that I've planned things out beforehand (hot take: you should plan things out beforehand)
+
+```{r, checkValidDb}
+
+expected_tables <- c("geography", "hourswork", "nationalocc", "gender", "adjtable")
+
+validdb <- expected_tables %in% dbListTables(con)
+
+if (!all(validdb)) {
+  message(paste0("Some tables are missing! We're missing: ", expected_tables[!validdb]))
+}
+```
+
+#### Do we have the data we need?
+
+If some of the tables are missing (i.e., we get the message above), then we need to check to see that we have the original data we need to actually do our analysis.  So, is the file there?
+
+We have the url for the file download, and we know the name of the actual file, so lets first check whether or not the file is there.  If it's not, we're going to download it from the URL:
+
+```{r checkfile}
+
+if (!all(validdb)) {
+  
+  #  We only need to do this if the database doesn't exist in its proper form!
+
+  url <- "https://www150.statcan.gc.ca/n1/tbl/csv/14100300-eng.zip"
+  filepath <- "data/"
+  filename <- "14100300-eng/14100300.csv"
+  zipname <- "14100300-eng.zip"
+  
+  csvfile <- file.exists(paste0(filepath, filename))
+  zipfile <- file.exists(paste0(filepath, zipname))
+  
+  if (!csvfile) {
+    message("The file isn't there! Checking for Zip file.")
+    if (!zipfile) {
+      message("Zip file isn't there, so we're going to download it.")
+      download.file(url, paste0(filepath, zipname))
+    }
+    
+    unzip(paste0(filepath, zipname),
+          exdir = "data/14100300-eng")
+  }
+  
+  assertthat::assert_that(file.exists(paste0(filepath, zipname)),
+                          msg = "The Zip file didn't go where we expected.")
+  assertthat::assert_that(file.exists(paste0(filepath, filename)),
+                          msg = "The CSV files didn't go where we expected.")
+}
+
+```
+
+So, now the zip file has been downloaded (but only if needed), and it's been extracted.  The file now exists.  We can read it in now.  To read things, we're going to use `readr`.  You may or may not need to install it already.
+
+#### Loading in the Data
+
+I'm loading in two versions of the data.  In general, if we weren't doing all the data description, I'd use an actual connection to the database, but this is partly for illustration:
+
+```{r addTables}
+data <- readr::read_csv('data/14100300-eng/14100300.csv')
+data_short <- readr::read_csv('data/14100300-eng/14100300.csv', n_max = 10)
+```
+
+## Data Description
+
+```{r, datasummary, echo = FALSE}
+
+if (file.exists("data/output/summarydata.csv")) {
+  
+  dataoutput <- readr::read_csv("data/output/summarydata.csv")
+
+} else {
+  columns <- colnames(data_short)
+  types <- apply(data_short, 2, class)
+  
+  # Takes a bit of time, because the file is so big!
+  unique_vals <- apply(data, 2, n_distinct)
+  
+  dataoutput <- data.frame(columns = columns,
+                           types = types,
+                           distinct = unique_vals)
+  readr::write_csv(dataoutput, "data/output/summarydata.csv")
+}
+
+DT::datatable(dataoutput, rownames = FALSE)
+
+```
+
+## Pushing Data to the Database
+
+### GEO
+
+The GEO field is a geographic table, containing `r n_distinct(data$GEO)` distinct values.  The `DGUID` field contains the same set of records, using an alphanumeric code.
+
+```{r makeGeoTable}
+if (!"geography" %in% dbListTables(con)) {
+  geo_table <- data.frame(guid = 1:n_distinct(data$GEO),
+                          geo  = unique(data$GEO))
+  
+  dbCreateTable(con, name = "geography", geo_table)
+}
+
+geo_objects <- data.frame(original = as.numeric(object.size(data$GEO)),
+                               new = as.numeric(object.size(match(data$GEO,
+                                                        geo_table$geo))))
+```
+
+We're just going to use a unique numeric ID here for geography.  By doing this we are reducing the geography field in the database from `r geo_objects$original` to `r geo_objects$new` bytes in size.
+
+### Hours Worked
+
+The field "Actual hours worked" contains `r n_distinct(data[,"Actual hours worked"])` levels.
+
+```{r makeHoursTable}
+if (!"hourswork" %in% dbListTables(con)) {
+  hwork_table <- data.frame(hwid = 1:n_distinct(data[,"Actual hours worked"]),
+                          worked = unique(data$`Actual hours worked`))
+  
+  dbCreateTable(con, name = "hourswork", hwork_table)
+}
+```
+
+### National Occupational Classification (NOC)
+
+```{r makeNOCTable}
+if (!"nationalocc" %in% dbListTables(con)) {
+  noc_table <- data.frame(nocid = 1:n_distinct(data[,"National Occupational Classification (NOC)"]),
+                          nationalocc = unique(data$`National Occupational Classification (NOC)`))
+  
+  dbCreateTable(con, name = "nationalocc", noc_table)
+}
+```
+
+### Gender
+
+```{r makeGenTable}
+if (!"gender" %in% dbListTables(con)) {
+  gender_table <- data.frame(genid = 1:n_distinct(data[,"Sex"]),
+                          gender = unique(data[,"Sex"]))
+  
+  dbCreateTable(con, name = "gender", gender_table)
+}
+```
+
+## Testing Object Sizes
+
+We can use the function `object.size()` to see how big things are:
+
+```{r}
+sizes <- data.frame(field = colnames(data),
+                    size = apply(data, 2, object.size))
+DT::datatable(sizes)
+```
+
+Replacing characters with numeric values can help reduce overall object size:
+
+```{r, matchingTables}
+new_db <- data.frame(geo = match(data$GEO, geo_table$geo),
+                     hours = match(data[,"Actual hours worked"],
+                                   hwork_table$worked),
+                     occupation = match(data[,"National Occupational Classification (NOC)"],
+                                        noc_table$nationalocc),
+                     sex = match(data$Sex, gender_table),
+                     value = as.numeric(data$VALUE))
+```
