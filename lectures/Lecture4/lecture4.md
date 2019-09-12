@@ -67,8 +67,8 @@ Jau Abinya | Anime | 1113 Howe St | Canada
 <!--v-->
 ## First Normal Form
 
-- Common solutions
-  - Leave as comma separated list (e.g., JSON & R lists)
+* Common solutions
+  - Leave as comma separated list
   - Split to:
 
 Name | Hobby1 | Hobby2 | Hobby3 | Address
@@ -103,14 +103,18 @@ A Snuz | Movies | 1111 Howe St | Canada
 
 <!--v-->
 ## Second Normal Form
-* Must be in First Normal Form
-
+### Person Table
 
 OID | Name | Address | Country
 --- | --- | --- | ---
  1 | A Snuz | 1111 Howe St | Canada
 2 | Quaz Bilzna | 1111 Howe St | Canada
 3 |  Jau Abinya | 1113 Howe St | Canada
+
+<!--v-->
+
+## Second Normal Form
+### Hobby Table
 
 SID | Hobby
 --- | ---
@@ -126,10 +130,6 @@ OID | Name | Address | Country
 --- | --- | --- | ---
  1 | A Snuz | 1111 Howe St, Vancouver | Canada
 
-SID | Sport
---- | ---
-1 | Fishing
-2 | Anime
 
 <!--v-->
 
