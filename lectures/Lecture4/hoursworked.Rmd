@@ -1,12 +1,25 @@
 ---
-title: "Clean Energy"
-author: "Simon Goring"
+title: "Hours Worked"
+author:
+  - affiliation: University of Wisconsin - Madison
+    name: Simon Goring
 date: "September 11, 2019"
-output: html_document
+output:
+  html_document:
+    code_folding: show
+    fig_caption: yes
+    keep_md: yes
+    self_contained: yes
+    theme: readable
+    toc: yes
+    toc_float: yes
+dev: svg
+highlight: tango
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 4, digits = 1)
 ```
 
 ## Actual Hours Worked
@@ -17,7 +30,7 @@ Here we will be looking at:
 
 1.  How to connect safely and in a reproducible manner.
 2.  How to manage data access in a way to save you time
-3.  
+3.  How normalization can save space & time
 
 ## Safely Connecting
 
@@ -41,8 +54,10 @@ nocdb
 
 To then use this, I'll load the library, read in the file (saved in the same directory as the `Rmd` file) and then create the connection.  I'm going to use the `assertthat` package to just make sure that the database connection is there.
 
-```{r}
+```{r connectdb}
 library(RPostgreSQL)
+library(dplyr)
+library(readr)
 
 connect <- readr::read_lines("db_connect.txt")
 
@@ -95,28 +110,28 @@ We have the url for the file download, and we know the name of the actual file, 
 ```{r checkfile}
 
 if (!all(validdb)) {
-  
+
   #  We only need to do this if the database doesn't exist in its proper form!
 
   url <- "https://www150.statcan.gc.ca/n1/tbl/csv/14100300-eng.zip"
   filepath <- "data/"
   filename <- "14100300-eng/14100300.csv"
   zipname <- "14100300-eng.zip"
-  
+
   csvfile <- file.exists(paste0(filepath, filename))
   zipfile <- file.exists(paste0(filepath, zipname))
-  
+
   if (!csvfile) {
     message("The file isn't there! Checking for Zip file.")
     if (!zipfile) {
       message("Zip file isn't there, so we're going to download it.")
       download.file(url, paste0(filepath, zipname))
     }
-    
+
     unzip(paste0(filepath, zipname),
           exdir = "data/14100300-eng")
   }
-  
+
   assertthat::assert_that(file.exists(paste0(filepath, zipname)),
                           msg = "The Zip file didn't go where we expected.")
   assertthat::assert_that(file.exists(paste0(filepath, filename)),
@@ -141,16 +156,16 @@ data_short <- readr::read_csv('data/14100300-eng/14100300.csv', n_max = 10)
 ```{r, datasummary, echo = FALSE}
 
 if (file.exists("data/output/summarydata.csv")) {
-  
+
   dataoutput <- readr::read_csv("data/output/summarydata.csv")
 
 } else {
   columns <- colnames(data_short)
   types <- apply(data_short, 2, class)
-  
+
   # Takes a bit of time, because the file is so big!
   unique_vals <- apply(data, 2, n_distinct)
-  
+
   dataoutput <- data.frame(columns = columns,
                            types = types,
                            distinct = unique_vals)
@@ -171,8 +186,10 @@ The GEO field is a geographic table, containing `r n_distinct(data$GEO)` distinc
 if (!"geography" %in% dbListTables(con)) {
   geo_table <- data.frame(guid = 1:n_distinct(data$GEO),
                           geo  = unique(data$GEO))
-  
+
   dbCreateTable(con, name = "geography", geo_table)
+} else {
+  geo_table <- dbReadTable(con, name = "geography")
 }
 
 geo_objects <- data.frame(original = as.numeric(object.size(data$GEO)),
@@ -182,6 +199,16 @@ geo_objects <- data.frame(original = as.numeric(object.size(data$GEO)),
 
 We're just going to use a unique numeric ID here for geography.  By doing this we are reducing the geography field in the database from `r geo_objects$original` to `r geo_objects$new` bytes in size.
 
+#### An Aside
+
+As an aside here, I hate that I have to get the `object.size()` and then do so much with it.  It makes my code really ugly.  So, to clean it up I wrote a small function.  It takes in two parameters, the object I want to get the size of, and the units I want the size in.  I put it in the `R` directory as `R/sizer.R`.
+
+```{r loadSizer}
+
+source("R/sizer.R")
+
+```
+
 ### Hours Worked
 
 The field "Actual hours worked" contains `r n_distinct(data[,"Actual hours worked"])` levels.
@@ -190,8 +217,10 @@ The field "Actual hours worked" contains `r n_distinct(data[,"Actual hours worke
 if (!"hourswork" %in% dbListTables(con)) {
   hwork_table <- data.frame(hwid = 1:n_distinct(data[,"Actual hours worked"]),
                           worked = unique(data$`Actual hours worked`))
-  
+
   dbCreateTable(con, name = "hourswork", hwork_table)
+} else {
+  hwork_table <- dbReadTable(con, "hourswork")
 }
 ```
 
@@ -201,8 +230,10 @@ if (!"hourswork" %in% dbListTables(con)) {
 if (!"nationalocc" %in% dbListTables(con)) {
   noc_table <- data.frame(nocid = 1:n_distinct(data[,"National Occupational Classification (NOC)"]),
                           nationalocc = unique(data$`National Occupational Classification (NOC)`))
-  
+
   dbCreateTable(con, name = "nationalocc", noc_table)
+} else {
+  noc_table <- dbReadTable(con, "nationalocc")
 }
 ```
 
@@ -212,29 +243,39 @@ if (!"nationalocc" %in% dbListTables(con)) {
 if (!"gender" %in% dbListTables(con)) {
   gender_table <- data.frame(genid = 1:n_distinct(data[,"Sex"]),
                           gender = unique(data[,"Sex"]))
-  
+
   dbCreateTable(con, name = "gender", gender_table)
+} else {
+  gender_table <- dbReadTable(con, "gender")
 }
 ```
 
-## Testing Object Sizes
-
-We can use the function `object.size()` to see how big things are:
-
-```{r}
-sizes <- data.frame(field = colnames(data),
-                    size = apply(data, 2, object.size))
-DT::datatable(sizes)
-```
-
-Replacing characters with numeric values can help reduce overall object size:
+### Values
 
 ```{r, matchingTables}
-new_db <- data.frame(geo = match(data$GEO, geo_table$geo),
-                     hours = match(data[,"Actual hours worked"],
-                                   hwork_table$worked),
-                     occupation = match(data[,"National Occupational Classification (NOC)"],
-                                        noc_table$nationalocc),
-                     sex = match(data$Sex, gender_table),
-                     value = as.numeric(data$VALUE))
+if (!"adjtable" %in% dbListTables(con)) {
+
+  geo_match <- match(data$GEO, geo_table$geo)
+  hour_match <- match(data[,"Actual hours worked"],
+                hwork_table$worked)
+  occ_match <- match(data[,"National Occupational Classification (NOC)"],
+                     noc_table$nationalocc)
+  gen_match <- match(data$Sex, gender_table)
+  values <- as.numeric(data$VALUE)
+
+  new_db <- data.frame(geo = geo_match,
+                       hours = hour_match,
+                       occupation = occ_match,
+                       gender = gen_match,
+                       value = values)
+  dbCreateTable(con, name = "adjtable", new_db)
+} else {
+  new_db <- dbReadTable(con, "adjtable")
+}
+
+cols <- c("GEO", "Actual hours worked", "National Occupational Classification (NOC)", "Sex", "VALUE")
+dbsize <- data.frame(original = sizer(data[,cols]),
+                     new = sizer(new_db))
 ```
+
+So in the end, we've reduced the core of the database from `r dbsize$original` to `r dbsize$new` bytes.
