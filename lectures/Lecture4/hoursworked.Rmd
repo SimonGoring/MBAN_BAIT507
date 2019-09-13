@@ -187,7 +187,10 @@ if (!"geography" %in% dbListTables(con)) {
   geo_table <- data.frame(guid = 1:n_distinct(data$GEO),
                           geo  = unique(data$GEO))
 
-  dbCreateTable(con, name = "geography", geo_table)
+  dbWriteTable(con,
+               name = "geography",
+               geo_table,
+               row.names = FALSE)
 } else {
   geo_table <- dbReadTable(con, name = "geography")
 }
@@ -218,7 +221,7 @@ if (!"hourswork" %in% dbListTables(con)) {
   hwork_table <- data.frame(hwid = 1:n_distinct(data[,"Actual hours worked"]),
                           worked = unique(data$`Actual hours worked`))
 
-  dbCreateTable(con, name = "hourswork", hwork_table)
+  dbWriteTable(con, name = "hourswork", hwork_table, row.names = FALSE)
 } else {
   hwork_table <- dbReadTable(con, "hourswork")
 }
@@ -231,7 +234,7 @@ if (!"nationalocc" %in% dbListTables(con)) {
   noc_table <- data.frame(nocid = 1:n_distinct(data[,"National Occupational Classification (NOC)"]),
                           nationalocc = unique(data$`National Occupational Classification (NOC)`))
 
-  dbCreateTable(con, name = "nationalocc", noc_table)
+  dbWriteTable(con, name = "nationalocc", noc_table, row.names = FALSE)
 } else {
   noc_table <- dbReadTable(con, "nationalocc")
 }
@@ -242,9 +245,9 @@ if (!"nationalocc" %in% dbListTables(con)) {
 ```{r makeGenTable}
 if (!"gender" %in% dbListTables(con)) {
   gender_table <- data.frame(genid = 1:n_distinct(data[,"Sex"]),
-                          gender = unique(data[,"Sex"]))
+                          gender = unique(data$Sex))
 
-  dbCreateTable(con, name = "gender", gender_table)
+  dbWriteTable(con, name = "gender", gender_table, row.names = FALSE)
 } else {
   gender_table <- dbReadTable(con, "gender")
 }
@@ -255,20 +258,25 @@ if (!"gender" %in% dbListTables(con)) {
 ```{r, matchingTables}
 if (!"adjtable" %in% dbListTables(con)) {
 
-  geo_match <- match(data$GEO, geo_table$geo)
-  hour_match <- match(data[,"Actual hours worked"],
-                hwork_table$worked)
-  occ_match <- match(data[,"National Occupational Classification (NOC)"],
-                     noc_table$nationalocc)
-  gen_match <- match(data$Sex, gender_table)
-  values <- as.numeric(data$VALUE)
+  if (file.exists("data/output/long_table.csv")) {
+    new_db <- readr::read_csv("data/output/long_table.csv")
+  } else {
+    geo_match <- match(data$GEO, geo_table$geo)
+    hour_match <- match(data$`Actual hours worked`,
+                  hwork_table$worked)
+    occ_match <- match(data$`National Occupational Classification (NOC)`,
+                       noc_table$nationalocc)
+    gen_match <- match(data$Sex, gender_table$gender)
+    values <- as.numeric(data$VALUE)
 
-  new_db <- data.frame(geo = geo_match,
-                       hours = hour_match,
-                       occupation = occ_match,
-                       gender = gen_match,
-                       value = values)
-  dbCreateTable(con, name = "adjtable", new_db)
+    new_db <- data.frame(geo = geo_match,
+                         hours = hour_match,
+                         occupation = occ_match,
+                         gender = gen_match,
+                         value = values)
+    readr::write_csv(new_db, "data/output/long_table.csv")
+  }
+  dbWriteTable(con, name = "adjtable", new_db, row.names = FALSE)
 } else {
   new_db <- dbReadTable(con, "adjtable")
 }
@@ -279,3 +287,49 @@ dbsize <- data.frame(original = sizer(data[,cols]),
 ```
 
 So in the end, we've reduced the core of the database from `r dbsize$original` to `r dbsize$new` bytes.
+
+## Putting it back together
+
+Our data is now in a database that is smaller than the original size, and the data is managed more efficiently (by the DBMS) than R can it in memory.  Unfortunately, on the surface of things, it's a bit harder to understand:
+
+```{r selectAdj}
+
+query <- "SELECT * FROM adjtable LIMIT 10"
+res <- dbGetQuery(con, query)
+DT::datatable(res)
+```
+
+So to make sense of things again, we need to be clear about what we're looking for.  Lets say we want to find the occupation with the most weekly hours worked by women in Canada.  We need to know that:
+
+**Sex** is *Females* in table **gender**
+**geo** is *Canada* in table **geography**
+
+And so we need to join the `gender` table together, and the `geography` table.  But they only share a common ID field within `adjtable`, which has both a `geo` and `gender` field.
+
+So, we want to `SELECT` the `value` field from `adjtable`, along with the `hours` field:
+
+```sql
+SELECT avg(value) AS hours,
+         COUNT(*) AS records,
+      nationalocc AS occupation
+FROM  adjtable AS adj
+INNER JOIN   geography AS g   ON    g.guid = adj.geo
+INNER JOIN      gender AS gen ON gen.genid = adj.gender
+INNER JOIN   hourswork AS hw  ON   hw.hwid = adj.hours
+INNER JOIN nationalocc AS noc ON noc.nocid = adj.occupation
+WHERE          g.geo = 'Canada'
+      AND gen.gender = 'Females'
+	  AND value IS NOT NULL
+    AND  hw.worked = 'Average actual hours (all workers, main job)'
+GROUP BY nationalocc
+ORDER BY hours DESC
+```
+
+To save space in this document (in the future), we're going to put the SQL script in its own file in the `sql` directory, saving it as `sql/top_hours.sql`.
+
+```{r callSQL}
+hoursql <- readr::read_file('sql/top_hours.sql')
+callhrs <- dbGetQuery(con, hoursql)
+```
+
+This shows us the `r callhrs$occupation[1]` had the most hours worked by women in Canada, with, on average, `r round(callhrs$hours[1],1)` worked weekly.

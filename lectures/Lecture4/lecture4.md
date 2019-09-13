@@ -7,7 +7,9 @@ revealOptions:
     transition: 'fade'
 ---
 
-# Data Modeling with Relational Databases, Normalization and JOINs
+# Data Modeling
+## Normalization and JOINs
+
 <!--v-->
 ## Table vs Database
 <!--v-->
@@ -93,6 +95,9 @@ A Snuz | Movies | 1111 Howe St | Canada
 * Single Column (primary key) uniquely identifies record
 * All fields must be dependent on the primary key
 
+<!--v-->
+## Second Normal Form
+
 Name | Hobbies | Address | Country
 --- | --- | --- | ---
 A Snuz | Fishing | 1111 Howe St | Canada
@@ -132,5 +137,21 @@ OID | Name | Address | Country
 
 
 <!--v-->
+ ## Third Normal Form
+ * Satisfies second normal form
+ * No transitive dependencies
 
-Actual hours worked by occupation, monthly, unadjusted for seasonality
+* **Person** table
+* **Address** table
+* **Hobby** table
+
+<!--s-->
+## Break it Apart
+## Join it Together
+
+<!--v-->
+<!--v-->
+
+## Modeling Data
+
+* Clean Energy Data

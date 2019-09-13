@@ -1,0 +1,18 @@
+columns,types,distinct
+REF_DATE,character,392
+GEO,character,11
+DGUID,character,11
+Actual hours worked,character,12
+National Occupational Classification (NOC),character,51
+Sex,character,3
+UOM,character,2
+UOM_ID,character,2
+SCALAR_FACTOR,character,2
+SCALAR_ID,character,2
+VECTOR,character,20196
+COORDINATE,character,20196
+VALUE,character,116956
+STATUS,character,3
+SYMBOL,character,1
+TERMINATED,character,1
+DECIMALS,character,1
