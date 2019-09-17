@@ -174,6 +174,7 @@ locs <- data.frame(coords = sf::st_sample(places,
                    zone = rep(as.character(places$NAME),
                        each = 20000),
                        stringsAsFactors = FALSE)
+locs$plid <- 1:nrow(locs)
 ```
 
 ### Maintenance
@@ -232,7 +233,7 @@ rideTable <- 1:20000 %>%
   map(function(x) {
     spots <- sample(nrow(locs), 2, replace = FALSE)
     data.frame(origin = spots[1],
-              desitination = spots[2],
+              destination = spots[2],
               driver = sample(drivers$pid, 1),
               rider = sample(allNames$passengers$pid, 1))
   }) %>%
@@ -279,48 +280,61 @@ We need to add the tables now. For each table we're going to check whether or no
 # Note: With all this repetition we should make a function.
 
 if (!dbExistsTable(con, "drivers")) {
-  dbWriteTable(con, "drivers", drivers)
+  dbWriteTable(con, "drivers", drivers,
+row.names = FALSE)
 }
 
 if (!dbExistsTable(con, "passengers")) {
-  dbWriteTable(con, "passengers", allNames$passengers)
+  dbWriteTable(con, "passengers",
+               allNames$passengers,
+             row.names = FALSE)
 }
 
 if (!dbExistsTable(con, "dispatchers")) {
   dbWriteTable(con,
                "dispatchers",
-               allNames$dispatchers)
+               allNames$dispatchers,
+             row.names = FALSE)
 }
 
 if(!dbExistsTable(con, "places")) {
-  dbExecute(con, "CREATE EXTENSION postgis;")
+  aa <- try(dbExecute(con, "CREATE EXTENSION postgis;"))
   dbWriteTable(con,
                "places",
                locs)
 }
 
 if (!dbExistsTable(con, "rides")) {
-  dbWriteTable(con, "rides", rideTable)
+  dbWriteTable(con, "rides", rideTable,
+row.names = FALSE)
 }
 
 if (!dbExistsTable(con, "model")) {
-  dbWriteTable(con, "model", car_make)
+  dbWriteTable(con, "model", car_make,
+row.names = FALSE)
 }
 
 if (!dbExistsTable(con, "cars")) {
-  dbWriteTable(con, "cars", cars)
+  dbWriteTable(con, "cars", cars,
+row.names = FALSE)
 }
 
 if (!dbExistsTable(con, "ratings")) {
-  dbWriteTable(con, "ratings", ratings)
+  dbWriteTable(con, "ratings", ratings,
+row.names = FALSE)
 }
 
 if (!dbExistsTable(con, "rateobj")) {
-  dbWriteTable(con, "rateobj", rateobj)
+  dbWriteTable(con, "rateobj", rateobj,
+row.names = FALSE)
 }
 
 dbDisconnect(con)
 ```
+
+## There are no Explicit Relationships Here!
+
+We're going to add them in and then time the differences.  We can also test things with the ratings, and potentially with distances.
 
 ## Questions
 

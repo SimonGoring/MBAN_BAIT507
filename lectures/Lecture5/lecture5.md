@@ -12,7 +12,22 @@ revealOptions:
 
 <!--v-->
 
+## Analysis Flow
+
+<img src="images/flow_chart.svg">
+
+<!--v-->
+
 ## Taxi company
+
+<!--v-->
+
+## Questions
+
+*  Which pickup/dropoff locations have the worst customers?
+*  How does vehicle maintenance affect driver rating?
+*  Which vehicles are next in for maintenance
+*  Which dispatchers drop the most reservations?
 
 <!--v-->
 
@@ -29,15 +44,6 @@ revealOptions:
 *  Reservations
 *  Maintenance
 *  Dispatchers
-
-<!--v-->
-
-## Questions
-
-*  Which pickup/dropoff locations have the worst customers?
-*  How does vehicle maintenance affect driver rating?
-*  Which vehicles are next in for maintenance
-*  Which dispatchers drop the most reservations?
 
 <!--v-->
 
