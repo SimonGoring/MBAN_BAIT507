@@ -30,7 +30,7 @@ library(purrrlyr)
 library(sf)
 library(randomNames)
 library(assertthat)
-
+library(sentimentr)
 ```
 
 ## Loading the database
@@ -136,6 +136,8 @@ drivers <- allNames$drivers %>%
                     rgamma(1:2000, 4, 8) *
                     (5 * 365))
 
+drivers$renewed[drivers$renewed >= as.Date(Sys.Date())] <- as.Date(Sys.Date() - 1)
+
 assertthat::assert_that(all(drivers$renewed < as.Date(Sys.Date())))
 
 ```
@@ -147,6 +149,9 @@ We're using a map of [Vancouver Neighborhoods (polygons)](https://data.vancouver
 ```{r getSpatial}
 
 if (!dir.exists("data/vanhoods/")) {
+  if (!dir.exists("data")) {
+    dir.create("data")
+  }
   dir.create("data/vanhoods")
 }
 
@@ -158,10 +163,11 @@ if (!file.exists("data/vanhoods/")) {
 }
 
 places <- sf::st_read("data/vanhoods/local_area_boundary.shp")
+
 ```
 We said we wanted something like 6,000,000 annual rides.  That means 6M ride starts and 6M ride ends.  The `sf` package has a function called [`st_sample()`](https://r-spatial.github.io/sf/reference/st_sample.html) that lets us generate random samples within polygons:
 
-```{r}
+```{r addLocs}
 n_hoods <- nrow(places[1])
 locs <- data.frame(coords = sf::st_sample(places,
                             rep(20000,n_hoods)),
@@ -174,7 +180,7 @@ locs <- data.frame(coords = sf::st_sample(places,
 
 In British Columbia all vehicles must be inspected twice yearly.  We need to generate fake car information.  A car is made up of information about the model, the year and the license plate.
 
-```{r}
+```{r genCars}
 
 no_cars <- 2100
 
@@ -225,8 +231,8 @@ ride_date <- sort(sample(date_seq,
 rideTable <- 1:20000 %>%
   map(function(x) {
     spots <- sample(nrow(locs), 2, replace = FALSE)
-    data.frame(start = spots[1],
-              end = spots[2],
+    data.frame(origin = spots[1],
+              desitination = spots[2],
               driver = sample(drivers$pid, 1),
               rider = sample(allNames$passengers$pid, 1))
   }) %>%
@@ -236,11 +242,41 @@ rideTable <- 1:20000 %>%
 
 ```
 
+### Ride Ratings
+
+Lets assume that we can have either passenger or driver ratings.  We'll make a table that has two options, and a object ID.  Then, we will randomly assign ratings for each ride.  We will first decide if people leave a rating (assume a 60% chance someone will rate their driver, and an 80% chance a driver rates a passenger).
+
+```{r ratings}
+
+sents <- sentimentr::combine_data("hotel_reviews") %>% select(text) %>% lapply(function(x)strsplit(x, ".")) %>% unlist()
+
+sents <- sents[nchar(sents) > 10]
+
+rateobj <- data.frame(rdid = c(1,2),
+                      rated = c("Passenger", "Driver"))
+
+ratings <- data.frame(rideid = rep(1:20000, 2),
+                      rdid  = rep(1:2, each = 20000),
+                      assigned = runif(40000, 0, 1),
+                      rating = sample(5,40000, replace = TRUE, prob = ppois(1:5, 3)),
+                    comments = NA)
+
+  ratings$comments[ratings$assigned > .9] <- sents[sample(1:length(sents),
+               sum(ratings$assigned > .9))]
+
+ratings <- ratings %>%
+  filter((rdid == 1 & assigned < .8) | (rdid == 2 & assigned < .6)) %>%
+  select(-assigned)
+
+```
+
 ## Pushing things to the DB
 
-We need to add the tables now.
+We need to add the tables now. For each table we're going to check whether or not the table exists.  If it exists we're going to write the table to file.
 
-```{r}
+```{r writeTables}
+# Note: With all this repetition we should make a function.
+
 if (!dbExistsTable(con, "drivers")) {
   dbWriteTable(con, "drivers", drivers)
 }
@@ -274,4 +310,17 @@ if (!dbExistsTable(con, "cars")) {
   dbWriteTable(con, "cars", cars)
 }
 
+if (!dbExistsTable(con, "ratings")) {
+  dbWriteTable(con, "ratings", ratings)
+}
+
+if (!dbExistsTable(con, "rateobj")) {
+  dbWriteTable(con, "rateobj", rateobj)
+}
+
+dbDisconnect(con)
 ```
+
+## Questions
+
+### Which pickup/dropoff locations have the worst customers?
