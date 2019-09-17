@@ -1,0 +1,277 @@
+---
+title: Making the Taxi DB
+author:
+  - affiliation: University of Wisconsin - Madison
+    name: Simon Goring
+date: "September 16, 2019"
+output:
+  html_document:
+    code_folding: show
+    fig_caption: yes
+    keep_md: yes
+    self_contained: yes
+    theme: readable
+    toc: yes
+    toc_float: yes
+dev: svg
+highlight: tango
+---
+
+## Loading Libraries
+
+We're using a few libraries here:
+
+```{r loadLibs}
+
+library(RPostgreSQL)
+library(dplyr)
+library(purrr)
+library(purrrlyr)
+library(sf)
+library(randomNames)
+library(assertthat)
+
+```
+
+## Loading the database
+
+Create a new local database called `taxico`.  You will connect to it using R (in this document), as I did in the last Rmd document.  First, create a text file called `db_connect.txt` and add the information you need to connect to your local database:
+
+```
+host
+port
+username
+password
+database
+```
+
+We'll use this file to connect to the database:
+
+```{r dbConnect}
+
+# Build will fail if the file isn't there.
+assertthat::assert_that(file.exists('db_connect.txt'),
+  msg = "Your connection file is missing.")
+
+con_file <- readr::read_lines('db_connect.txt')
+
+con <- RPostgreSQL::dbConnect(
+             PostgreSQL(),
+             host = con_file[1],
+             port = con_file[2],
+             user = con_file[3],
+         password = con_file[4],
+           dbname = con_file[5])
+
+```
+
+## A Taxi Database and Fake Data
+
+Lets say we want to make a database for the taxi company.  We need to create a number of tables, and we need to fill them with fake data.
+
+In class we discussed some of the elements a taxi database might need:
+
+*  Drivers
+*  Passengers
+*  Dispatchers
+*  Locations
+*  Ratings (driver, customer)
+*  Vehicles
+*  Rides
+*  Reservations
+*  Maintenance
+*  Payment [Cash, Debit, Credit, Cheque]
+
+To generate the fake database we're going to use some different datasets.  The first comes from the city of Vancouver:
+
+### Names: Passengers, Dispatchers and Drivers
+
+Random Names: R Library `randomNames` (https://cran.r-project.org/web/packages/randomNames)
+
+We use names in three places (at the most). Data from 2018 indicates that there are approximately 2,100 taxi cabs operating in Vancouver.  Assuming that each cab has two drivers (running at 80% operation/day) then we might expect to have 4,200 total drivers in the Lower Mainland.  Lets assume we're working with one company, with approximately **2,000 drivers**.
+
+I was unable to find reasonable data on passenger information.  I did find a single reference to a total volume of **6,000,000** annual rides for passengers.  Lets assume 200,000 _named_ riders annually.  We can decide how the rides get divvied up later.
+
+Taxi companies employ dispatchers .  Lets make the numbers related and choose **200** as the total number of dispatchers.
+
+```{r fakeNames}
+
+nameTables <- data.frame(people = c("drivers",
+                                    "passengers",
+                                    "dispatchers"),
+                number = c(2000, 200000, 200),
+                stringsAsFactors = FALSE)
+
+personName <- nameTables  %>%
+  by_row(function(x) {
+    randomNames::randomNames(x$number)
+  }, .labels = FALSE) %>%
+  unlist(recursive = FALSE)
+
+split_name <- function(x) {
+  splitName <- strsplit(x, ",")[[1]]
+
+  data.frame(first = splitName[2],
+             last  = splitName[1],
+             stringsAsFactors = FALSE)
+}
+
+# Split apart the names, then add a unique ID.
+allNames <- personName %>%
+  map(function(x) lapply(x, split_name) %>%
+  bind_rows()) %>%
+  map(function(x) {
+    x$pid <- 1:nrow(x)
+    return(x)
+  })
+
+names(allNames) <- nameTables$people
+
+drivers <- allNames$drivers %>%
+  mutate(province = "BC",
+         license = length(pid) %>%
+               runif(1e7, 1e8) %>%
+               floor,
+         renewed = as.Date("2011-01-01") +
+                    rgamma(1:2000, 4, 8) *
+                    (5 * 365))
+
+assertthat::assert_that(all(drivers$renewed < as.Date(Sys.Date())))
+
+```
+
+### Places
+
+We're using a map of [Vancouver Neighborhoods (polygons)](https://data.vancouver.ca/datacatalogue/localAreaBoundary.htm).  This uses spatial data in R using the [sf package]().  There are a set of good tutorials for using Spatial Data in R on the [r-spatial Github Pages](https://r-spatial.github.io/sf/articles/sf1.html).
+
+```{r getSpatial}
+
+if (!dir.exists("data/vanhoods/")) {
+  dir.create("data/vanhoods")
+}
+
+if (!file.exists("data/vanhoods/")) {
+  download.file("ftp://webftp.vancouver.ca/OpenData/shape/local_area_boundary_shp.zip",
+  "data/vanhoods/local_area_boundary_shp.zip")
+  unzip("data/vanhoods/local_area_boundary_shp.zip",
+        exdir = "data/vanhoods")
+}
+
+places <- sf::st_read("data/vanhoods/local_area_boundary.shp")
+```
+We said we wanted something like 6,000,000 annual rides.  That means 6M ride starts and 6M ride ends.  The `sf` package has a function called [`st_sample()`](https://r-spatial.github.io/sf/reference/st_sample.html) that lets us generate random samples within polygons:
+
+```{r}
+n_hoods <- nrow(places[1])
+locs <- data.frame(coords = sf::st_sample(places,
+                            rep(20000,n_hoods)),
+                   zone = rep(as.character(places$NAME),
+                       each = 20000),
+                       stringsAsFactors = FALSE)
+```
+
+### Maintenance
+
+In British Columbia all vehicles must be inspected twice yearly.  We need to generate fake car information.  A car is made up of information about the model, the year and the license plate.
+
+```{r}
+
+no_cars <- 2100
+
+car_make <- data.frame(modelid = 1:4,
+                       make = c("Ford", "Fiat",
+                                "SAIC", "Tata"),
+                       model = c("Fiesta", "500",
+                                 "Roewe", "Tigor"),
+                       stringsAsFactors = FALSE)
+
+lsa <- function(x) { sample(letters, x,
+                            replace = TRUE) }
+
+nsa <- function(x) { sample(0:9, x, replace = TRUE) }
+
+cars <- data.frame(carid = 1:no_cars,
+                   modelid = sample(car_make$modelid,
+                                    2100,
+                                  replace = TRUE),
+                   license = paste0(lsa(2100),
+                                    nsa(2100),
+                                    lsa(2100),
+                                    nsa(2100),
+                                    lsa(2100),
+                                    nsa(2100)))
+```
+
+### Rides
+
+Rides link two locations, a passenger, a car and a driver.
+
+```{r buildRide}
+
+date_seq <- seq(from = as.Date("2014-01-01"),
+                  to = as.Date("2019-01-01"),
+                  by = 1)
+
+date_prob <- (date_seq %>%
+              lubridate::wday()) %in% c(1,7) %>%
+              if_else(., 0.3, 0.7)
+
+ride_date <- sort(sample(date_seq,
+                         size = 20000,
+                         replace = TRUE,
+                       prob = date_prob))
+
+
+rideTable <- 1:20000 %>%
+  map(function(x) {
+    spots <- sample(nrow(locs), 2, replace = FALSE)
+    data.frame(start = spots[1],
+              end = spots[2],
+              driver = sample(drivers$pid, 1),
+              rider = sample(allNames$passengers$pid, 1))
+  }) %>%
+  bind_rows() %>%
+  mutate(date = ride_date,
+         rideid = 1:20000)
+
+```
+
+## Pushing things to the DB
+
+We need to add the tables now.
+
+```{r}
+if (!dbExistsTable(con, "drivers")) {
+  dbWriteTable(con, "drivers", drivers)
+}
+
+if (!dbExistsTable(con, "passengers")) {
+  dbWriteTable(con, "passengers", allNames$passengers)
+}
+
+if (!dbExistsTable(con, "dispatchers")) {
+  dbWriteTable(con,
+               "dispatchers",
+               allNames$dispatchers)
+}
+
+if(!dbExistsTable(con, "places")) {
+  dbExecute(con, "CREATE EXTENSION postgis;")
+  dbWriteTable(con,
+               "places",
+               locs)
+}
+
+if (!dbExistsTable(con, "rides")) {
+  dbWriteTable(con, "rides", rideTable)
+}
+
+if (!dbExistsTable(con, "model")) {
+  dbWriteTable(con, "model", car_make)
+}
+
+if (!dbExistsTable(con, "cars")) {
+  dbWriteTable(con, "cars", cars)
+}
+
+```
