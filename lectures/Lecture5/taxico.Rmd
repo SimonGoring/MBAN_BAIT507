@@ -262,7 +262,8 @@ ratings <- data.frame(rideid = rep(1:20000, 2),
                     comments = NA)
 
   ratings$comments[ratings$assigned > .9] <- sents[sample(1:length(sents),
-               sum(ratings$assigned > .9))]
+               sum(ratings$assigned > .9),
+             replace = TRUE)]
 
 ratings <- ratings %>%
   filter((rdid == 1 & assigned < .8) | (rdid == 2 & assigned < .6)) %>%
