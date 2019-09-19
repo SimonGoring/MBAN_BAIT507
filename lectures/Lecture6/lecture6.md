@@ -32,8 +32,8 @@ FROM table AS tb
 ## A SQL Query with Alias in R
 
 ```r
-dbGetQuery(con, "SELECT **tb**.column
-                 FROM table AS **tb**")
+dbGetQuery(con, "SELECT tb.column
+                 FROM table AS tb")
 ```
 
 <!--v-->
@@ -70,6 +70,84 @@ LIMIT 10
 
 | 361263 |      259311 |    124 | 196659 | 2014-01-01 |      5 |      5 |    1 |      2 | NA       |
 ```
+<!--v-->
+
+## Left Table vs Right Table
+
+```sql
+SELECT *
+FROM
+              left
+  INNER JOIN right ON left.index = right.index
+```
+
+<!--v-->
+
+## INNER JOIN
+
+```sql
+SELECT *
+FROM
+              left
+  INNER JOIN right ON left.index = right.index
+```
+
+* Linked value must appear in both tables
+  - `ON left.index = right.index`
+  - `left.index` contains [1,2,3,4,5]
+  - `right.index` contains [4,5,6,7,8]
+  - Result set contains [4,5]
+
+<!--v-->
+## LEFT OUTER JOIN
+
+```sql
+SELECT *
+FROM
+                   left
+  LEFT OUTER JOIN right ON left.index = right.index
+```
+
+* Linked value must appear in both tables
+  - `ON left.index = right.index`
+  - `left.index` contains `[1,2,3,4,5]`
+  - `right.index` contains `[4,5,6,7,8]`
+  - Result set contains `[1,2,3,4,5]`
+
+<!--v-->
+
+## RIGHT OUTER JOIN
+
+```sql
+SELECT *
+FROM
+                    left
+  RIGHT OUTER JOIN right ON left.index = right.index
+```
+
+* Linked value must appear in both tables
+  - `ON left.index = right.index`
+  - `left.index` contains `[1,2,3,4,5]`
+  - `right.index` contains `[4,5,6,7,8]`
+  - Result set contains `[4,5,6,7,8]`
+
+<!--v-->
+
+## FULL OUTER JOIN
+
+```sql
+SELECT *
+FROM
+                   left
+  FULL OUTER JOIN right ON left.index = right.index
+```
+
+* Linked value must appear in both tables
+  - `ON left.index = right.index`
+  - `left.index` contains `[1,2,3,4,5]`
+  - `right.index` contains `[4,5,6,7,8]`
+  - Result set contains `[1,2,3,4,5,6,7,8]`
+
 <!--v-->
 
 ## Cleaning Up the Query
