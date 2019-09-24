@@ -99,6 +99,18 @@ FROM
   - Result set contains [4,5]
 
 <!--v-->
+
+## INNER JOIN
+
+```sql
+SELECT
+  *
+FROM         rides AS ri
+INNER JOIN ratings AS ra ON ra.rideid = ri.rideid
+LIMIT 10
+```
+
+<!--v-->
 ## LEFT OUTER JOIN
 
 ```sql
@@ -113,6 +125,18 @@ FROM
   - `left.index` contains `[1,2,3,4,5]`
   - `right.index` contains `[4,5,6,7,8]`
   - Result set contains `[1,2,3,4,5]`
+
+<!--v-->
+
+## LEFT OUTER JOIN
+
+```sql
+SELECT
+  *
+FROM              rides AS ri
+LEFT OUTER JOIN ratings AS ra ON ra.rideid = ri.rideid
+LIMIT 10
+```
 
 <!--v-->
 
@@ -131,6 +155,17 @@ FROM
   - `right.index` contains `[4,5,6,7,8]`
   - Result set contains `[4,5,6,7,8]`
 
+<!--v-->
+
+## RIGHT OUTER JOIN
+
+```sql
+SELECT
+  *
+FROM               rides AS ri
+RIGHT OUTER JOIN ratings AS ra ON ra.rideid = ri.rideid
+LIMIT 10
+```
 <!--v-->
 
 ## FULL OUTER JOIN
@@ -221,6 +256,10 @@ LIMIT 10
 ```
 
 <!--s-->
+
+# Summarizing the Data
+
+<!--v-->
 
 ## Summarizing
 
@@ -318,3 +357,31 @@ LIMIT 10
 |Driver |   1909| 2.29|     7|
 |Driver |   1724| 2.36|    11|
 ```
+
+<!--s-->
+
+# Break Time
+
+<!--v-->
+
+## Questions
+
+*  Which pickup/dropoff locations have the worst customers?
+*  How does vehicle maintenance affect driver rating?
+*  Which vehicles are next in for maintenance
+*  Which dispatchers drop the most reservations?
+
+<!--v-->
+
+## Questions
+
+*  Which pickup/dropoff locations have the worst customers?
+
+<!--v-->
+
+* New Rmd (new Project)
+* Connect to the Database
+* Query (try it with pgAdmin first)
+  - `JOIN`
+  - `GROUP BY`
+  - Average rating

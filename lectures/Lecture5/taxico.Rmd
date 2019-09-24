@@ -164,13 +164,16 @@ if (!file.exists("data/vanhoods/")) {
 
 places <- sf::st_read("data/vanhoods/local_area_boundary.shp")
 
+plot(places)
 ```
+
 We said we wanted something like 6,000,000 annual rides.  That means 6M ride starts and 6M ride ends.  The `sf` package has a function called [`st_sample()`](https://r-spatial.github.io/sf/reference/st_sample.html) that lets us generate random samples within polygons:
 
 ```{r addLocs}
 # EPSG: 26910
 # +proj=utm +zone=10 +datum=NAD83 +units=m +no_defs
 n_hoods <- nrow(places[1])
+
 locs <- data.frame(coords = st_as_text(sf::st_sample(places,
                             rep(20000,n_hoods))),
                    zone = rep(as.character(places$NAME),
