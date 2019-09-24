@@ -98,6 +98,7 @@ SELECT * FROM table WHERE column = 12
 
 ## B-Tree Index
 
+* `CREATE INDEX indexname ON table(column) USING BTREE`
 *  Binary tree
 *  Rapidly reduces search time
 
@@ -109,9 +110,77 @@ SELECT * FROM table WHERE column = 12
 
 ## Build the Tree
 ```
-[[1,2,3],[4,5,6],[7,8,9],[10,11,12]]
+[[1,2,3],[4,5,6],[7,8,9],[10,11,12], [13,14,15]]
 ```
 
 *  Minimize the steps to get to the value.
+*  Tree stores values in `>=` nodes.
+
+```
+   [1] -- -- -- [7]
+ [1]--[4]     [7]--[13]
+```
+<!--v-->
+
+## Testing the speed:
+
+* [Rscript](R/testingIndex.R)
+
+```
+noindex <- system.time(
+  for (i in 1:1000) {
+    suppressMessages(dbGetQuery(con, "SELECT *
+     FROM datatablenoindex
+     WHERE code LIKE 'l%'
+        OR code LIKE 'k%';"))
+  })
+```
 
 <!--v-->
+
+## Testing the Speed
+
+* Text search with B-Tree index faster by 17% (on 1m rows)
+
+<!--v-->
+
+## B-Tree Strengths
+
+* When there are many value classes or unique.
+* Small size relative to other indexes
+
+<!--v-->
+
+## B-Tree Limitations
+
+* Strict equality searches:
+  - `<`, `<=`, `=`, `>=`, `>`
+  - Also text searches with `LIKE` or `~` (regular expressions) **ONLY** when searching for the beginning of strings.
+
+<!--s-->
+
+# HASH Functions
+
+<!--v-->
+
+## Hash functions
+
+* `CREATE INDEX indexename ON table USING HASH (column);`
+
+<!--v-->
+
+## Hash functions
+
+* Good for equality only `=`
+* Strongly discoraged, but can be fast (64% faster)
+
+<!--s-->
+
+# GIN Index
+
+<!--v-->
+
+## Generalized Inverted Index
+
+* A collection of tools to build a key:value(s) pairing
+* A compound B-Tree with algorythmic decisions -- Can be tuned.
