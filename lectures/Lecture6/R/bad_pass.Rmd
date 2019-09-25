@@ -1,0 +1,74 @@
+---
+title: 'Bad Passengers: Where are they at?'
+author: "Simon Goring"
+date: "September 19, 2019"
+output: html_document
+---
+
+## Load Libraries
+
+We want to load the libraries
+
+```{r loadLibs}
+library(RPostgreSQL)
+library(readr)
+
+```
+
+## Make Connection
+
+We're going to onnect to the database.
+
+```{r makeConnect}
+connection <- readr::read_lines("db_connect.txt")
+
+con <- RPostgreSQL::dbConnect(PostgreSQL(),
+                              host = connection[1],
+                              port = connection[2],
+                              user = connection[3],
+                              password = connection[4],
+                              dbname = connection[5])
+
+```
+
+## Question
+
+Which locations have the worst passengers?
+
+* ratings
+* rides
+* rateobj
+* places
+
+## Links
+
+* ratings -> rides using `rideid` (both)
+* ratings -> rideobj using `rdid` (both)
+* rides -> places using `plid` == `origin` AND `destination`
+
+## Query
+
+```{r ratedPass}
+
+ratePass <- dbGetQuery(con,
+                       "SELECT
+                          rt.rating,
+                          plo.zone AS origin,
+                          pld.zone AS destination
+                        FROM
+                          ratings AS rt
+                          INNER JOIN rides AS ri ON rt.rideid = ri.rideid
+                          INNER JOIN rateobj AS ro ON ro.rdid = rt.rdid
+                          INNER JOIN places AS plo ON plo.plid = ri.origin
+                          INNER JOIN places AS pld ON pld.plid = ri.destination
+                        WHERE ro.rated LIKE 'Passenger';")
+```
+
+Now I have a data table that has `r nrow(ratePass)` rows.  There are `r sum(ratePass$rating == 5)` five star ratings.
+
+```{r}
+boxplot(rating ~ origin, data = ratePass)
+```
+
+Here is a plot of all the ratings for passengers.
+

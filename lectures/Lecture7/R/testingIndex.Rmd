@@ -1,3 +1,26 @@
+---
+title: Testing Indexes in Postgres & R
+author:
+  - affiliation: University of Wisconsin - Madison
+    name: Simon Goring
+date: "September 24, 2019"
+output:
+  html_document:
+    code_folding: show
+    fig_caption: yes
+    keep_md: yes
+    self_contained: yes
+    theme: readable
+    toc: yes
+    toc_float: yes
+dev: svg
+highlight: tango
+---
+
+
+
+# Load and Connect the Required Libraries.
+```{r}
 library(RPostgreSQL)
 library(dplyr)
 library(purrr)
@@ -21,6 +44,12 @@ con <- RPostgreSQL::dbConnect(
          password = con_file[4],
            dbname = con_file[5])
 
+```
+
+## Generating Fake Data
+
+```{r fakeData}
+
 datatable <- data.frame(oid = 1:1e6,
                         code = NA,
                         value = round(runif(1e6, 10, 100)))
@@ -30,6 +59,14 @@ for(i in 1:1e6) {
   datatable$code[i] <- paste0(letters[sample(1:26, 3, replace = TRUE)], collapse = '')
 }
 
+```
+
+```{r testFunction}
+
+test <- function(x) {
+  query <- paste0("SELECT * FROM ", x,
+                  " WHERE ")
+}
 dbWriteTable(con,
              "datatablenoindex",
              datatable)
@@ -38,8 +75,10 @@ dbWriteTable(con,
              "datatableindex",
              datatable)
 
+```{r}
 dbExecute(con,
-          "CREATE INDEX testval ON datatable(code)")
+          "CREATE INDEX testval ON datatable USING HASH code")
+```
 
 # How many data pages does this take up?
 dbGetQuery(con,
@@ -86,3 +125,56 @@ dbExecute(con,
                WHERE code LIKE 'l%'
                   AND value > 55;"))
             })
+
+## Using the HASH
+
+```{r}
+
+dbExecute("CREATE INDEX hashIndex ON datatable USING HASH (value)")
+
+noindexhash <- system.time(
+  for (i in 1:1000) {
+    suppressMessages(dbGetQuery(con, "SELECT *
+     FROM datatablenoindex
+     WHERE value = 55;"))
+  })
+
+indexhash <- system.time(
+  for (i in 1:1000) {
+    suppressMessages(dbGetQuery(con,
+      "SELECT *
+     FROM datatable
+     WHERE value = 55;"))
+  })
+```
+
+## GIN Index
+
+```{r}
+
+dbCreateTable(con,
+              "forgin",
+              c(oid="serial",
+                sentence = "text",
+                values = "integer",
+                code = "char(3)"))
+dbCreateTable(con,
+              "forginnix",
+              c(oid="serial",
+                sentence = "text",
+                values = "integer",
+                code = "char(3)"))
+
+dbExecute(con,
+         "INSERT INTO forgin(sentence, values, code)
+         VALUES
+         ((SELECT
+	substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        FROM (random() *26)::int FOR 1) ||
+	substring('abcdefghijklmnopqrstuvwxyz'
+        FROM (random() *26)::int FOR 20) AS sentence
+      FROM generate_series(1, 10000)),
+         (SELECT (random()*1000)::integer FROM generate_series(1, 10000)),
+       ())")
+
+```
