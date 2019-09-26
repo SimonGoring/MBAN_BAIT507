@@ -1,0 +1,315 @@
+---
+title: Testing Indexes in Postgres & R
+author:
+  - affiliation: University of Wisconsin - Madison
+    name: Simon Goring
+date: "September 24, 2019"
+output:
+  html_document:
+    code_folding: show
+    fig_caption: yes
+    keep_md: yes
+    self_contained: yes
+    theme: readable
+    toc: yes
+    toc_float: yes
+dev: svg
+highlight: tango
+---
+
+## Problem Statement
+
+What economic factors drive interprovincial migration?
+  * Can we predict shifts in migration?
+  * If we can, can we use that to support resettlement services in provinces with high immigration, and support advertising in provinces with high emmigration.
+
+## Data
+
+```{r loadLibs}
+
+library(RPostgreSQL)
+library(dplyr)
+library(purrr)
+library(purrrlyr)
+library(assertthat)
+
+```
+
+### Census - Interprovincial Migration
+
+The data comes from Statistics Canada (https://catalogue.data.gov.bc.ca/dataset/inter-provincial-and-international-migration/resource/95579825-bfa2-4cab-90fa-196e0ecc8626) and represents estimates of interprovincial migration from 1971 -- 2019.  Values in the table indicate the year and annual quarter of observation, the source province (in rows) and then the number of individuals migrating to each of the provinces and territories in Canada across the columns.
+
+| Column       | Meaning                          |
+|--------------|----------------------------------|
+| id           | Unique identifier                |
+| year         | Year of survey                   |
+| quarter      | Annual quarter of survey (1 - 4) |
+| origin       | Province of origin               |
+| [NL -- Nvt.] | Province or territory (13 cols)  |
+| Total        | Total migration                  |
+
+```{r getInterprovincial}
+
+if (!dir.exists("data/input/")) {
+  if (!dir.exists("data")) {
+    dir.create("data")
+  }
+  dir.create("data/input")
+}
+
+if (!file.exists("data/input/interprovincial_migration.csv")) {
+  download.file("https://catalogue.data.gov.bc.ca/dataset/56610cfc-02ba-41a7-92ef-d9609ef507f1/resource/95579825-bfa2-4cab-90fa-196e0ecc8626/download/interprovincial_migration.csv",
+  "data/input/interprovincial_migration.csv")
+}
+
+```
+
+### Labour Data
+
+Statistics Canada reports [monthly estimates of employment across Canadian provinces.  [https://www150.statcan.gc.ca/n1/en/tbl/csv/14100017-eng.zip?st=o0s47X7R].
+
+Data is broken down by year and month, location, gender and age class.
+
+```{r getLabourData}
+
+if (!dir.exists("data/input/")) {
+  if (!dir.exists("data")) {
+    dir.create("data")
+  }
+  dir.create("data/input")
+}
+
+if (!file.exists("data/input/14100017-eng.zip")) {
+  download.file("https://www150.statcan.gc.ca/n1/tbl/csv/14100017-eng.zip",
+  "data/input/14100017-eng.zip")
+  unzip("data/input/14100017-eng.zip",
+        exdir = "data/input")
+}
+
+```
+
+## Constructing the Database
+
+We create a PostgreSQL database for our data.  Both datasets include geographic data, at the provincial level.
+
+```{r dbConnect}
+
+# Build will fail if the file isn't there.
+assertthat::assert_that(file.exists('db_connect.txt'),
+  msg = "Your connection file is missing.")
+
+con_file <- readr::read_lines('db_connect.txt')
+
+con <- RPostgreSQL::dbConnect(
+             PostgreSQL(),
+             host = con_file[1],
+             port = con_file[2],
+             user = con_file[3],
+         password = con_file[4],
+           dbname = con_file[5])
+
+```
+### Initial Data Cleaning
+
+We want to remove NA values, and pare down the input data into a managable chunk.
+
+### Employment Data
+
+We are going to remove some of the data.  In particular, any row that has an `NA` for the `VALUE` field.
+
+```{r cleanData}
+
+if (!file.exists('data/output/employment.rds')) {
+  labour <- readr::read_csv("data/input/14100017.csv")
+  labour_mod <- labour %>%
+    filter(!(is.na(VALUE) | GEO == "Canada")) %>%
+    select(ref_date = REF_DATE,
+           location = GEO,
+           variable = "Labour force characteristics",
+           gender = Sex,
+           age_class = "Age group",
+           value = VALUE,
+           units = UOM,
+           factor = SCALAR_FACTOR) %>%
+    mutate(ref_date = paste0(ref_date, "-01"),
+           value = ifelse(factor == "thousands",
+                          value * 1000,
+                          value))
+  if (!file.exists('data/output')) {
+    dir.create('data/output')
+  }
+  saveRDS(labour_mod, 'data/output/employment.rds')
+} else {
+  labour_mod <- readRDS('data/output/employment.rds')
+}
+
+```
+### Migration Data
+
+This data is a bit trickier:
+
+```{r readMigration}
+if (!file.exists('data/output/migration.rds')) {
+  migr <- readr::read_csv("data/input/interprovincial_migration.csv")
+
+  migr_reshape <- migr %>%
+    gather("dest", "people", -c(Year, Quarter, Origin)) %>%
+    filter(!(people == 0 | Origin == 'Total' | dest == 'Total')) %>%
+    select(year = Year,
+           quarter = Quarter,
+           origin = Origin,
+           dest = dest,
+           people = people) %>%
+    mutate(ref_date = year + (quarter - 1) / 4)
+
+  if (!file.exists('data/output')) {
+    dir.create('data/output')
+  }
+  saveRDS(migr_reshape, 'data/output/migration.rds')
+} else {
+  migr_reshape <- readRDS('data/output/migration.rds')
+}
+```
+
+## Table Creation
+### Table: Province
+
+This table contains an entry for each province.  We'll read the data in from each table.
+
+```{r}
+lab_prov <- unique(labour_mod$location)
+mig_prov <- unique(c(migr_reshape$origin,
+                     migr_reshape$dest))
+
+translate <- data.frame(province = c("Newfoundland and Labrador",
+                                "Prince Edward Island",
+                                "Nova Scotia",
+                                "New Brunswick",
+                                "Quebec",
+                                "Ontario",
+                                "Manitoba",
+                                "Saskatchewan",
+                                "Alberta",
+                                "British Columbia"),
+                        mig = c("N.L.", "P.E.I",
+                                "N.S.", "N.B.",
+                                "Que.", "Ont.",
+                                "Man.", "Sask.",
+                                "Alta.", "B.C."),
+                              stringsAsFactors = FALSE)
+
+migr_reshape <- migr_reshape %>%
+  filter(origin %in% translate$mig & dest %in% translate$mig)
+
+dbWriteTable(con,
+             "province",
+             data.frame(pid = 1:nrow(translate),
+                        province = translate[,1]),
+             row.names = FALSE,
+             overwrite = TRUE)
+dbExecute(con, "ALTER TABLE province ADD PRIMARY KEY (pid)")
+
+```
+
+### Table: Migration
+
+This table contains the migration data.  It requires a date field (year-month), a province of `origin` column and a `destination` province, and finally a `value` column.  The `origin` and `destination` columns point to the `province` table.
+
+```{r}
+
+migr_table <- migr_reshape %>%
+  transmute(ref_date = lubridate::as_date(ref_date),
+            origin = match(origin, translate$mig),
+            dest = match(dest, translate$mig),
+            people = people)
+
+dbWriteTable(con, "migration", migr_table)
+dbExecute(con, "CREATE INDEX migdate ON migration(ref_date)")
+dbExecute(con, "ALTER TABLE migration ADD CONSTRAINT provkeyo FOREIGN KEY (origin) REFERENCES province (pid) MATCH FULL")
+dbExecute(con, "ALTER TABLE migration ADD CONSTRAINT provkeyd FOREIGN KEY (dest) REFERENCES province (pid) MATCH FULL")
+```
+
+### Table: Gender
+
+Two class gender data.
+
+```{r addGenders}
+gendertable <- data.frame(gid = 1:n_distinct(labour_mod$gender),
+                     gender = unique(labour_mod$gender))
+dbWriteTable(con,
+             "gender",
+             gendertable,
+             row.names = FALSE,
+             overwrite = TRUE)
+
+dbExecute(con, "ALTER TABLE gender ADD PRIMARY KEY (gid)")
+
+```
+
+### Table: Age Class
+
+Multi factor age class data.
+
+```{r ageClass}
+ages <- data.frame(ageid = 1:n_distinct(labour_mod$age_class),
+                   ageclass = unique(labour_mod$age_class))
+
+dbWriteTable(con,
+             "ages",
+             ages,
+             row.names = FALSE,
+             overwrite = TRUE)
+
+dbExecute(con, "ALTER TABLE ages ADD PRIMARY KEY (ageid)")
+
+```
+### Table: Labour Data Class
+
+Multi-factor (Employment &cetera.)
+
+```{r dataClass}
+dataclass <- data.frame(dcid = 1:n_distinct(labour_mod$variable),
+                        dataclass = unique(labour_mod$variable))
+dbWriteTable(con,
+             "dataclass",
+             dataclass,
+             row.names = FALSE,
+             overwrite = TRUE)
+
+dbExecute(con, "ALTER TABLE dataclass ADD PRIMARY KEY (dcid)")
+```
+
+### Table: Labour Data
+
+```{r addlabour}
+
+labour_out <- labour_mod %>%
+  transmute(ref_date = lubridate::as_date(ref_date),
+            pid = match(location, translate$province),
+            dcid = match(variable, dataclass$dataclass),
+            gid = match(gender, gendertable$gender),
+            ageid = match(age_class, ages$ageclass),
+            value = value)
+
+dbWriteTable(con,
+             "labour",
+             labour_out,
+             row.names = FALSE,
+             overwrite = TRUE)
+
+dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT provkey FOREIGN KEY (pid) REFERENCES province (pid) MATCH FULL")
+dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT datakey FOREIGN KEY (dcid) REFERENCES dataclass (dcid) MATCH FULL")
+dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT genderkey FOREIGN KEY (gid) REFERENCES gender (gid) MATCH FULL")
+dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT agekey FOREIGN KEY (ageid) REFERENCES ages (ageid) MATCH FULL")
+
+```
+
+## Analysis
+
+###
+
+## Conclusions
+
+# References
+
+Statistics Canada. Table 051-0045 - Interprovincial migrants, by province or territory of origin and destination, quarterly (persons), CANSIM (database). (accessed: 2019 Q1)
