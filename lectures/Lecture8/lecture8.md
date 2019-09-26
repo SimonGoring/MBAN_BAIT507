@@ -72,7 +72,23 @@ How do job openings and average wages affect inter-provincial migration?
 * Spatial (both datasets with provinces)
 * Temporal (both datasets over time since ~1976)
   - One monthly, one quarterly
-* Migration for total population
+* Migration between provinces for Canada
 * Employment by gender & age classes
 * Employment data with 10 different employment values:
   - Population, Labour force, Employment, Full-time employment, Part-time employment, Unemployment, Not in labour force, Unemployment rate (%), Participation rate (%), Employment rate (%)
+
+<!--v-->
+
+## RMarkdown Document
+
+* New database - any name
+* [RMarkdown Document](https://github.com/SimonGoring/MBAN_BAIT507/blob/master/lectures/Lecture8/migration_report.Rmd)
+
+<!--v-->
+
+## Analytic Questions
+
+* Tables:  ages, dataclass, gender, labour, migration, province
+* Motivation: Resettlement company
+  - How do we market better?
+  - How do we plan?
