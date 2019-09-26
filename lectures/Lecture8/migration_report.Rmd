@@ -27,12 +27,17 @@ What economic factors drive interprovincial migration?
 
 ```{r loadLibs}
 
+knitr::opts_chunk$set(echo = TRUE,
+                      results = 'hide',
+                      message = FALSE,
+                      warnings = FALSE)
+
+options(scipen = 4, digits = 1)
+
 library(RPostgreSQL)
 library(dplyr)
-library(purrr)
-library(purrrlyr)
-library(assertthat)
-
+library(lubridate)
+library(readr)
 ```
 
 ### Census - Interprovincial Migration
@@ -66,7 +71,7 @@ if (!file.exists("data/input/interprovincial_migration.csv")) {
 
 ### Labour Data
 
-Statistics Canada reports [monthly estimates of employment across Canadian provinces.  [https://www150.statcan.gc.ca/n1/en/tbl/csv/14100017-eng.zip?st=o0s47X7R].
+Statistics Canada reports [monthly estimates of employment across Canadian provinces](https://www150.statcan.gc.ca/n1/en/tbl/csv/14100017-eng.zip?st=o0s47X7R).
 
 Data is broken down by year and month, location, gender and age class.
 
@@ -172,6 +177,25 @@ if (!file.exists('data/output/migration.rds')) {
 ```
 
 ## Table Creation
+
+When we push data into the database, we do the same thing each time.  We can wrap this in a function:
+
+```{r postDataFunction}
+post_data <- function(con, x, tablename = "") {
+  if (dbExistsTable(con, tablename)) {
+    dbExecute(con,
+      paste0("DROP TABLE ", tablename,
+             " CASCADE"))
+  }
+
+  dbWriteTable(con,
+               tablename,
+               x,
+               row.names = FALSE,
+               overwrite = TRUE)
+}
+```
+
 ### Table: Province
 
 This table contains an entry for each province.  We'll read the data in from each table.
@@ -201,13 +225,13 @@ translate <- data.frame(province = c("Newfoundland and Labrador",
 migr_reshape <- migr_reshape %>%
   filter(origin %in% translate$mig & dest %in% translate$mig)
 
-dbWriteTable(con,
-             "province",
-             data.frame(pid = 1:nrow(translate),
-                        province = translate[,1]),
-             row.names = FALSE,
-             overwrite = TRUE)
-dbExecute(con, "ALTER TABLE province ADD PRIMARY KEY (pid)")
+post_data(con,
+  data.frame(pid = 1:nrow(translate),
+             province = translate[,1]),
+  "province")
+
+dbExecute(con,
+  "ALTER TABLE province ADD PRIMARY KEY (pid)")
 
 ```
 
@@ -223,7 +247,7 @@ migr_table <- migr_reshape %>%
             dest = match(dest, translate$mig),
             people = people)
 
-dbWriteTable(con, "migration", migr_table)
+post_data(con, migr_table, "migration")
 dbExecute(con, "CREATE INDEX migdate ON migration(ref_date)")
 dbExecute(con, "ALTER TABLE migration ADD CONSTRAINT provkeyo FOREIGN KEY (origin) REFERENCES province (pid) MATCH FULL")
 dbExecute(con, "ALTER TABLE migration ADD CONSTRAINT provkeyd FOREIGN KEY (dest) REFERENCES province (pid) MATCH FULL")
@@ -236,11 +260,9 @@ Two class gender data.
 ```{r addGenders}
 gendertable <- data.frame(gid = 1:n_distinct(labour_mod$gender),
                      gender = unique(labour_mod$gender))
-dbWriteTable(con,
-             "gender",
-             gendertable,
-             row.names = FALSE,
-             overwrite = TRUE)
+post_data(con,
+  gendertable,
+  "gender")
 
 dbExecute(con, "ALTER TABLE gender ADD PRIMARY KEY (gid)")
 
@@ -254,11 +276,9 @@ Multi factor age class data.
 ages <- data.frame(ageid = 1:n_distinct(labour_mod$age_class),
                    ageclass = unique(labour_mod$age_class))
 
-dbWriteTable(con,
-             "ages",
-             ages,
-             row.names = FALSE,
-             overwrite = TRUE)
+post_data(con,
+  ages,
+  "ages")
 
 dbExecute(con, "ALTER TABLE ages ADD PRIMARY KEY (ageid)")
 
@@ -270,11 +290,9 @@ Multi-factor (Employment &cetera.)
 ```{r dataClass}
 dataclass <- data.frame(dcid = 1:n_distinct(labour_mod$variable),
                         dataclass = unique(labour_mod$variable))
-dbWriteTable(con,
-             "dataclass",
-             dataclass,
-             row.names = FALSE,
-             overwrite = TRUE)
+post_data(con,
+          dataclass,
+          "dataclass")
 
 dbExecute(con, "ALTER TABLE dataclass ADD PRIMARY KEY (dcid)")
 ```
@@ -291,11 +309,9 @@ labour_out <- labour_mod %>%
             ageid = match(age_class, ages$ageclass),
             value = value)
 
-dbWriteTable(con,
-             "labour",
-             labour_out,
-             row.names = FALSE,
-             overwrite = TRUE)
+post_data(con,
+  labour_out,
+  "labour")
 
 dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT provkey FOREIGN KEY (pid) REFERENCES province (pid) MATCH FULL")
 dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT datakey FOREIGN KEY (dcid) REFERENCES dataclass (dcid) MATCH FULL")
@@ -305,8 +321,6 @@ dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT agekey FOREIGN KEY (ageid) REF
 ```
 
 ## Analysis
-
-###
 
 ## Conclusions
 
