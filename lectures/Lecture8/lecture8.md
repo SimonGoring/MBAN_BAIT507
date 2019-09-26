@@ -44,10 +44,10 @@ How do job openings and average wages affect inter-provincial migration?
 
 <!--v-->
 
-## Quarterly Employment Data
+## Monthly Employment Data
 
 * https://www150.statcan.gc.ca/n1/en/tbl/csv/14100017-eng.zip?st=o0s47X7R
-
+* Includes Employment, Unemployment, gender, age classes &cetera.
 <!--v-->
 
 |ref_date   |location |variable        | value|
@@ -59,4 +59,20 @@ How do job openings and average wages affect inter-provincial migration?
 |1976-05-01 |Ontario  |Employment rate |  42.3|
 |1976-06-01 |Ontario  |Employment rate |  42.2|
 
+<!--s-->
+
+## Developing the Question
+
+* How do employment opportunities or challenges affect inter-provincial migration?
+
 <!--v-->
+
+## Data Structure
+
+* Spatial (both datasets with provinces)
+* Temporal (both datasets over time since ~1976)
+  - One monthly, one quarterly
+* Migration for total population
+* Employment by gender & age classes
+* Employment data with 10 different employment values:
+  - Population, Labour force, Employment, Full-time employment, Part-time employment, Unemployment, Not in labour force, Unemployment rate (%), Participation rate (%), Employment rate (%)

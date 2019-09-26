@@ -38,6 +38,7 @@ library(RPostgreSQL)
 library(dplyr)
 library(lubridate)
 library(readr)
+library(tidyr)
 ```
 
 ### Census - Interprovincial Migration
@@ -74,6 +75,8 @@ if (!file.exists("data/input/interprovincial_migration.csv")) {
 Statistics Canada reports [monthly estimates of employment across Canadian provinces](https://www150.statcan.gc.ca/n1/en/tbl/csv/14100017-eng.zip?st=o0s47X7R).
 
 Data is broken down by year and month, location, gender and age class.
+
+**Describe the columns here (as above)**
 
 ```{r getLabourData}
 
@@ -120,7 +123,9 @@ We want to remove NA values, and pare down the input data into a managable chunk
 
 ### Employment Data
 
-We are going to remove some of the data.  In particular, any row that has an `NA` for the `VALUE` field.
+We are going to remove some of the data.  In particular, any row that has an `NA` for the `VALUE` field in the labour market data.
+
+**Look at the code below, what other things are happening?  Describe them**  *the functions `filter()`, `select()`, `mutate()` and `transmute()` all come from the `dplyr` package.*
 
 ```{r cleanData}
 
@@ -149,9 +154,10 @@ if (!file.exists('data/output/employment.rds')) {
 }
 
 ```
+
 ### Migration Data
 
-This data is a bit trickier:
+**Look at the code below, what is happening?  Describe it**  *the functions `filter()`, `select()`, and `mutate()` come from the `dplyr` package.  The function `gather()` comes from `tidyr`.*
 
 ```{r readMigration}
 if (!file.exists('data/output/migration.rds')) {
@@ -178,7 +184,7 @@ if (!file.exists('data/output/migration.rds')) {
 
 ## Table Creation
 
-When we push data into the database, we do the same thing each time.  We can wrap this in a function:
+When we push data into the database, we do the same thing each time.  We can wrap this in a function.  The function `post_data()` deletes the table and any keys or indexes we have made, before creating the table again.  This ensures you can run the script multiple times without errors.
 
 ```{r postDataFunction}
 post_data <- function(con, x, tablename = "") {
@@ -199,6 +205,8 @@ post_data <- function(con, x, tablename = "") {
 ### Table: Province
 
 This table contains an entry for each province.  We'll read the data in from each table.
+
+**Explain what's happening here**
 
 ```{r}
 lab_prov <- unique(labour_mod$location)
@@ -239,6 +247,8 @@ dbExecute(con,
 
 This table contains the migration data.  It requires a date field (year-month), a province of `origin` column and a `destination` province, and finally a `value` column.  The `origin` and `destination` columns point to the `province` table.
 
+**Explain what's happening here**
+
 ```{r}
 
 migr_table <- migr_reshape %>%
@@ -257,6 +267,8 @@ dbExecute(con, "ALTER TABLE migration ADD CONSTRAINT provkeyd FOREIGN KEY (dest)
 
 Two class gender data.
 
+**Explain what is happening here**
+
 ```{r addGenders}
 gendertable <- data.frame(gid = 1:n_distinct(labour_mod$gender),
                      gender = unique(labour_mod$gender))
@@ -270,7 +282,7 @@ dbExecute(con, "ALTER TABLE gender ADD PRIMARY KEY (gid)")
 
 ### Table: Age Class
 
-Multi factor age class data.
+**Explain what is happening here**
 
 ```{r ageClass}
 ages <- data.frame(ageid = 1:n_distinct(labour_mod$age_class),
@@ -285,7 +297,7 @@ dbExecute(con, "ALTER TABLE ages ADD PRIMARY KEY (ageid)")
 ```
 ### Table: Labour Data Class
 
-Multi-factor (Employment &cetera.)
+**Explain what is happening here**
 
 ```{r dataClass}
 dataclass <- data.frame(dcid = 1:n_distinct(labour_mod$variable),
@@ -298,6 +310,8 @@ dbExecute(con, "ALTER TABLE dataclass ADD PRIMARY KEY (dcid)")
 ```
 
 ### Table: Labour Data
+
+**Explain what is happening here**
 
 ```{r addlabour}
 
@@ -321,6 +335,16 @@ dbExecute(con, "ALTER TABLE labour ADD CONSTRAINT agekey FOREIGN KEY (ageid) REF
 ```
 
 ## Analysis
+
+**Pick two possible analyses that you could do.  Each analysis must require a SQL query that includes at least one JOIN.  In addition, one must require a summary statement, such as AVG, SUM or COUNT.**
+
+### Question One
+
+**Describe the specific question, explain your reasoning, and provide a graphic or table to illustrate the result.**
+
+### Question Two
+
+**Describe the specific question, explain your reasoning, and provide a graphic or table to illustrate the result.**
 
 ## Conclusions
 
