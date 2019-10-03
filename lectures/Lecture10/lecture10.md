@@ -36,20 +36,17 @@ How big is big data?
 
 <!--v-->
 
-## The 4 Vs of Big Data
+<h2>The 4 V<small>s</small> of Big Data</h2>
 
-Farley, Dawson Goring & Williams, *Ecography*, 2018
+<img src=images/fourv_bigdata.png width="80%">
+
+<citation>Farley, Dawson Goring & Williams, *Ecography*, 2018</citation>
 
 <!--v-->
 
 ## The 4 Vs
 
 * Velocity, Variety, Veracity and Volume
-
-<!--v-->
-
-## Velocity, Variety, Veracity and Volume
-
 * Modify elements of
   - Processing
   - Storage
@@ -70,6 +67,9 @@ solutions
   - Still limited by read-write access
   - Still limited by memory capacity
 * Dividing/Sharding
+
+<img src=images/sharding_concept.png>
+
 <!--v-->
 ## Velocity
 
@@ -87,7 +87,11 @@ solutions
 * Agile development
 * Modular analytics
 * Identify “Key Performance Indicators” & develop real-time reporting
-* Manage “hot” and “cold” data differently
+
+<!--v-->
+## Hot and Cold Data
+
+<img src=images/hot_cold.png>
 
 <!--v-->
 
@@ -95,12 +99,12 @@ solutions
 
 * Hot Data:
   - In Memory Processing (e.g., Redis)
-  - Application
-  - Data Classes
 * Cold Data:
   * RDBMS
   * Disk Storage
+
 <!--v-->
+
 ## Variety
 * How different is the data source?
 * Are data coming from multiple sources?
@@ -129,9 +133,9 @@ Graph DB)
   - Outgoing analysis
 <!--v-->
 ## Veracity (& Value)
-* Know your data
+* **Know your data**
 * Data volatility (how long is it accurate)?
-* Domain knowledge is critical
+* _Domain knowledge is critical_
 * Clear definition of assumptions
 * Clear checks on key processes
 * TDD * Test Driven Development
@@ -139,45 +143,8 @@ Graph DB)
 
 ## Different Industries, Different Challenges
 
-* Many File Types
-* Many Data Types
-* Veracity Crowd Sourced Survey
-Data
-Log
-Files
-Variety
-MB
-GB
-TB
-PB
-Volume
-Batch
-Periodic
-Real Time
-Velocity
+<img src=images/bigdata_dims.png width=60%>
 
-<!--v-->
-Different Industries, Different
-Challenges
-Many File Types
-Many Data Types
-Veracity
-Crowd
-Sourced
-Survey
-Data
-Log
-Files
-Variety
-MB
-GB
-TB
-PB
-Volume
-Batch
-Periodic
-Real Time
-Velocity
 <!--v-->
 ## When is Big Data Appropriate?
 * Depends on:
@@ -195,44 +162,54 @@ Velocity
   - Servers (storage & memory)
   - Time
 <!--v-->
-Server
-Analyst
-Interface/
-Dashboard
-Server
-Server
-Server
-Server
-<!--v-->
 ## Strategy - Basics
 * Map & Reduce
-[12,14,12,16]
+* Splitting the data up, applying a function & aggregating results
 
-<!--v-->
-## Strategy - Basics
-* Map & Reduce
-[12,14,12,16]
-
+```r
+mean(c(12,14,12,16))
 ```
-{name: “Simon Goring”,
-Purchases: [12,14,15,12],
-OrderIDs: [1312,121,12,121],
-...
+
+<!--v-->
+## Strategy - Basics
+* Map & Reduce
+
+<img src=images/longboxes.png>
+
+```json
+{
+  "name": "Simon Goring",
+  "values": [12,14,15,12],
+  "items": [1312,121,12,121]
 }
 ```
 <!--v-->
 ## Strategy - Basics
 
-(not) Map & Reduce
+<img src=images/longboxes_for.png>
 
-```
+```r
 newList = list(c(12,13,14),c(0,1,2),c(3,5,6),
                c(12,14,11),c(5,6,12))
-means = rep(NA, length(newList))
+means <- rep(NA, length(newList))
+sums <- 0
 for (i in 1:length(newList)) {
-  means[i] = mean(newList[i])
+  sums <- sums + mean(newList[i])
 }
+result <- sums / length(newList)
 ```
+<!--v-->
+## Strategy - Basics
+
+* Reduce
+
+```r
+newList = list(c(12,13,14),c(0,1,2),c(3,5,6),
+               c(12,14,11),c(5,6,12))
+allMax = Reduce(max, newList)
+pluses = Reduce("+", newList)
+```
+
 <!--v-->
 ## Strategy - Basics
 
@@ -241,51 +218,37 @@ for (i in 1:length(newList)) {
 ```r
 newList = list(c(12,13,14),c(0,1,2),c(3,5,6),
                c(12,14,11),c(5,6,12))
-means <- lapply(newList, mean)
-means <- purrr::map(newList, mean)
+means <- Reduce(sum, Map(mean, newList)) / length(newList)
 ```
-<!--v-->
-## Strategy - Basics
 
-*  Map & Reduce
-
-```r
-newList = list(c(12,13,14),c(0,1,2),c(3,5,6),
-               c(12,14,11),c(5,6,12))
-allMax = Reduce(max, newList)
-pluses = Reduce("+", newList)
-```
 <!--v-->
 ## Partitioning Data
 Map and Reduce allow us to partition data
 
-Server Server Server Server Server
-map() map() map() map() map()
-<!--v-->
-* HADOOP * A core system
+<img src=images/longboxes_map.png>
+
+<!--s-->
+
+## HADOOP - A core system
+
+<img src=images/longboxes.png>
+
 * Runs with Java
-* Includes several elements
+* Multiple components
 * Hadoop Distributed File System is the core component
+
 <!--v-->
-hdfs
-NameNode
-Hadoop Distributed
-File System
-DataNode
-Replication Factor = 3
+
+<img src=images/hadoop.png>
+
 <!--v-->
-hdfs
-NameNode
-Hadoop Distributed
-File System
-DataNode
-Replication Factor = 3
+
+<img src=images/hadoop_deadnode.png>
+
 <!--v-->
-NameNode
+<img src=images/hadoop_deadnode_namenode.png>
 <!--v-->
- nd NameNode
-DataNode
-<!--v-->
+## Hadoop tools
 * sqoop/Hue
   - Import data from sources into HDFS
   - Postgres tables
@@ -303,87 +266,74 @@ DataNode
   - Compiled to MapReduce
   - Summarizes, Groups & Processes structured data
 <!--v-->
-● Hadoop/HDFS/Hive is not for speed
-● Large scale analytics on complex data
+## Hadoop
+* Hadoop/HDFS/Hive is not for speed
+* Large scale analytics on complex data
 <!--v-->
 ## Sharding
 * Sharding is also an option
 * Tools like Citus (Postgres), MySQL Cluster and others
-https://www.mysql.com/products/cluster/scalability.html
+<!--v-->
+<img src=images/citud_arch.png width=55%>
 <!--v-->
 ## Vertical Sharding
-* Tables are split among nodes
-* “Fast” tables with many inserts/updates are
+* Tables (or columns within tables) are split among nodes
+* "Fast" (hot) tables with many inserts/updates are
 optimized
-* “Slow” tables managed more easily
+* "Slow" tables managed more easily
+
+<img src=images/hot_cold.png width=50%>
 <!--v-->
 ## Horizontal Sharding
-* Data within tables is split
+* Rows within tables are split
 * Regionally, or as part of internal application
 logic
-https://www.mysql.com/products/cluster/scalability.html
+
 <!--v-->
-●
-●
-Sharding can reduce lag due to locks
-May require additional effort to re-
-assemble data (e.g., JOIN operations)
+<img src=images/DB_image_1_cropped.png width=60%>
+<small>https://www.digitalocean.com/community/tutorials/understanding-database-sharding</small>
+<!--v-->
+## Sharding Benefits/Costs
+* Sharding can reduce lag due to locks
+* May require additional effort to re-assemble data (e.g., JOIN operations)
 <!--v-->
 ## Spark
 * Faster, in memory processing
-* Can manage real-time streaming data (e.g.,
-Twitter)
+* Can manage real-time streaming data (e.g., Twitter)
 * Works with HDFS, or without
 * Limited in total size, but size is very large
 <!--v-->
-Application
-Spark Driver
-Cluster Manager
-Execution
-Nodes
-HDFS
+<img src=images/apache_spark.png>
 <!--v-->
-Application
-Spark Driver
-Cluster Manager
-Execution
-Nodes
-HDFS
+<img src=images/apache_spark_manager.png>
 <!--v-->
-Application
-Spark Driver
-Cache
-Execution
-Task1
-Nodes
-Cluster Manager
-Task2
-HDFS
-<!--v-->
-● Reduced read/write processing
-● Faster startup for jobs
-● Better control of itterated processes
+## Spark Advantages
+* Reduced read/write processing
+* Faster startup for jobs
+* Better control of itterrated processes
+* R - `sparklyr` package, works with `dplyr`/`tidyverse`
 <!--v-->
 ## Key Terms & Context
 * Map/Reduce
-* Hadoop * HDFS
+* Hadoop / HDFS
 * Sharding
 * Spark
 <!--v-->
-# Considerations in Big Data Analysis
+# Considerations
+## Big Data Analysis
 <!--v-->
 ## Researcher Degrees of Freedom
-> “In the course of collecting and analyzing data, researchers have many decisions to make: Should more data be collected? Should some observations be excluded? Which conditions should be combined and which ones compared? Which control variables should be considered? Should specific measures be combined or transformed or both? ... The problem, of course, is that the likelihood of at least one (of many) analyses producing a falsely positive finding at the 5% level is necessarily greater than 5%.
+<blockquote style="font-size:.8em">In the course of collecting and analyzing data, researchers have many decisions to make: Should more data be collected?  Should some observations be excluded?  Which conditions should be combined and which ones compared?  Which control variables should be considered?  Should specific measures be combined or transformed or both? ... <em>The problem, of course, is that the likelihood of at least one (of many) analyses producing a falsely positive finding at the 5% level is necessarily greater than 5%</em>.</blockquote>
+JP Simmons &al **2011**. *Psychological Science*
 <!--v-->
 ## Researcher Degrees of Freedom
-* Wrong Correlations
-* Fluke Correlations
-* Artifacts
-* Hyped Correlations
-* Uncorroborated
-* Correlations
-* Ephemeral Correlations
-* Effects can by Magnified in Big Data
+* **Effects can by Magnified in Big Data**
+  - Wrong/Fluke correlations
+  - Data artifacts
+  - Hyped Correlations
+  - Uncorroborated correlations
+  - Ephemeral correlations
+
 <!--v-->
 ## Researcher Degrees of Freedom
 * Possibilities are magnified
